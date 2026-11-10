@@ -4,9 +4,11 @@ from app.config import BaseConfig
 
 def _get_database_uri():
     uri = os.environ.get("DATABASE_URL")
-    if uri and uri.startswith("postgres://"):
-        # Fix Render/Heroku legacy postgres:// prefix for SQLAlchemy >= 1.4
-        uri = uri.replace("postgres://", "postgresql://", 1)
+    if uri:
+        if uri.startswith("postgres://"):
+            uri = uri.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif uri.startswith("postgresql://") and not uri.startswith("postgresql+"):
+            uri = uri.replace("postgresql://", "postgresql+psycopg2://", 1)
     return uri
 
 

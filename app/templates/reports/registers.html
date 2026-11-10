@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}POS Register Shift Audits{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>POS Register Cash Drawer & Shift Audits</h1>
+    <p>Reconcile cash drawer floats, expected cash, actual counted cash, and variance over/short</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <a href="{{ url_for('pos.index') }}" class="btn btn-secondary">⚡ POS Counter</a>
+    {% if current_user.is_manager_or_above %}
+    <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary">&larr; Executive Overview</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Sub-menu -->
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+  {% if current_user.is_manager_or_above %}
+  <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📊 Executive Overview</a>
+  <a href="{{ url_for('reports.profit_loss', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📑 P&L Statement</a>
+  {% endif %}
+  <a href="{{ url_for('reports.products', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">☕ Product Sales & Margins</a>
+  {% if current_user.is_manager_or_above %}
+  <a href="{{ url_for('reports.inventory', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📦 Inventory & Valuation</a>
+  <a href="{{ url_for('reports.attendance', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">👥 Staff Labor & Hours</a>
+  {% endif %}
+  <a href="{{ url_for('reports.registers', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-primary btn-sm">⚡ POS Register Audits</a>
+</div>
+
+<!-- Period Filter Selector -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('reports.registers') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1.5; min-width: 160px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Time Period</label>
+      <select name="period" class="form-control" onchange="handlePeriodChange(this);">
+        <option value="today" {% if selected_period == 'today' %}selected{% endif %}>Today</option>
+        <option value="yesterday" {% if selected_period == 'yesterday' %}selected{% endif %}>Yesterday</option>
+        <option value="this_week" {% if selected_period == 'this_week' %}selected{% endif %}>This Week</option>
+        <option value="last_week" {% if selected_period == 'last_week' %}selected{% endif %}>Last Week</option>
+        <option value="this_month" {% if selected_period == 'this_month' %}selected{% endif %}>This Month</option>
+        <option value="last_month" {% if selected_period == 'last_month' %}selected{% endif %}>Last Month</option>
+        <option value="this_quarter" {% if selected_period == 'this_quarter' %}selected{% endif %}>This Quarter</option>
+        <option value="this_year" {% if selected_period == 'this_year' %}selected{% endif %}>This Year</option>
+        <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Custom Date Range</option>
+      </select>
+    </div>
+
+    <div id="custom-dates" style="display: {% if selected_period == 'custom' %}flex{% else %}none{% endif %}; gap: 0.75rem; flex-wrap: wrap; flex: 2;">
+      <div style="flex: 1; min-width: 130px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">From</label>
+        <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+      </div>
+      <div style="flex: 1; min-width: 130px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">To</label>
+        <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+      </div>
+      <div style="align-self: flex-end;">
+        <button type="submit" class="btn btn-secondary">Apply</button>
+      </div>
+    </div>
+
+    <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-dim); padding-bottom: 0.5rem;">
+      Period: <strong>{{ audit_data.period_label }}</strong>
+    </div>
+  </form>
+</div>
+
+<!-- KPI Cards -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div class="card stat-card" style="border-left: 4px solid var(--primary);">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Total Register Shifts</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #fff; margin-top: 0.35rem;">
+      {{ audit_data.total_shifts }} Shifts
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Drawer sessions opened</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid #10b981;">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Register Sales Volume</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #10b981; margin-top: 0.35rem;">
+      {{ format_currency(audit_data.total_sales) }}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Across {{ audit_data.total_orders }} orders</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid {% if audit_data.total_discrepancy == 0 %}#3b82f6{% elif audit_data.total_discrepancy > 0 %}#10b981{% else %}#ef4444{% endif %};">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Net Cash Drawer Variance</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: {% if audit_data.total_discrepancy == 0 %}#3b82f6{% elif audit_data.total_discrepancy > 0 %}#10b981{% else %}#ef4444{% endif %}; margin-top: 0.35rem;">
+      {% if audit_data.total_discrepancy > 0 %}+{% endif %}{{ format_currency(audit_data.total_discrepancy) }}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+      {% if audit_data.total_discrepancy == 0 %}Balanced{% elif audit_data.total_discrepancy > 0 %}Cash Over{% else %}Cash Short{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Shift Audit Table -->
+<div class="card">
+  <div class="card-header">
+    <h3>POS Register Shift Drawer Log</h3>
+  </div>
+
+  {% if audit_data.shifts %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Shift ID</th>
+            <th>Cashier</th>
+            <th>Opened At</th>
+            <th>Closed At</th>
+            <th>Opening Float</th>
+            <th>Expected Cash</th>
+            <th>Closing Cash</th>
+            <th>Variance</th>
+            <th>Sales Volume</th>
+            <th>Orders</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in audit_data.shifts %}
+            <tr>
+              <td><span class="badge badge-secondary">#{{ s.id }}</span></td>
+              <td><strong style="color: #fff;">{{ s.cashier_name }}</strong></td>
+              <td style="font-size: 0.85rem;">{{ s.opened_at }}</td>
+              <td style="font-size: 0.85rem; color: var(--text-muted);">{{ s.closed_at or 'Open Now' }}</td>
+              <td>{{ format_currency(s.opening_cash) }}</td>
+              <td>
+                {% if s.expected_cash is not none %}
+                  {{ format_currency(s.expected_cash) }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if s.closing_cash is not none %}
+                  {{ format_currency(s.closing_cash) }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if s.closing_cash is not none %}
+                  {% if s.discrepancy == 0 %}
+                    <span class="badge badge-success">Balanced</span>
+                  {% elif s.discrepancy > 0 %}
+                    <span class="badge badge-warning">+{{ format_currency(s.discrepancy) }} Over</span>
+                  {% else %}
+                    <span class="badge badge-danger">{{ format_currency(s.discrepancy) }} Short</span>
+                  {% endif %}
+                {% else %}
+                  <span style="color: var(--text-dim);">-</span>
+                {% endif %}
+              </td>
+              <td style="font-weight: 700; color: #fff;">{{ format_currency(s.total_sales) }}</td>
+              <td><strong>{{ s.order_count }}</strong></td>
+              <td>
+                {% if s.is_active %}
+                  <span class="badge badge-success">🟢 Active</span>
+                {% else %}
+                  <span class="badge badge-secondary">Closed</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-dim);">
+      <p style="margin: 0;">No POS register shifts found for this period.</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function handlePeriodChange(selectEl) {
+  const customDiv = document.getElementById('custom-dates');
+  if (selectEl.value === 'custom') {
+    if (customDiv) customDiv.style.display = 'flex';
+    const startInput = document.querySelector('input[name="start_date"]');
+    if (startInput && !startInput.value) {
+      const today = new Date().toISOString().split('T')[0];
+      startInput.value = today;
+      const endInput = document.querySelector('input[name="end_date"]');
+      if (endInput && !endInput.value) endInput.value = today;
+    }
+    if (startInput) startInput.focus();
+  } else {
+    if (customDiv) customDiv.style.display = 'none';
+    selectEl.form.submit();
+  }
+}
+function toggleCustomDates(val) {
+  const customDiv = document.getElementById('custom-dates');
+  if (customDiv) customDiv.style.display = (val === 'custom') ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

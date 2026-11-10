@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Staff Profile - {{ user.full_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Employee Compensation & Profile: {{ user.full_name }}</h1>
+    <p>Role: <span class="badge badge-primary">{{ user.role }}</span> | Code: <code>{{ profile.employee_code }}</code> | Username: <code>{{ user.username }}</code></p>
+  </div>
+  <a href="{{ url_for('employees.index') }}" class="btn btn-secondary">&larr; Back to Staff Directory</a>
+</div>
+
+<div style="max-width: 680px;">
+  <div class="card">
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="position">Job Position / Title *</label>
+          <input type="text" id="position" name="position" class="form-control" value="{{ profile.position or 'Staff' }}" required placeholder="e.g. Lead Barista, Head Cashier">
+        </div>
+
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="employment_status">Employment Status *</label>
+          <select id="employment_status" name="employment_status" class="form-control" required>
+            {% for st in employment_statuses %}
+              <option value="{{ st }}" {% if profile.employment_status == st %}selected{% endif %}>{{ st }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="hourly_rate">Hourly Wage Rate ($ / hr) *</label>
+          <input type="number" step="0.25" min="0" id="hourly_rate" name="hourly_rate" class="form-control" value="{{ profile.hourly_rate }}" required>
+        </div>
+
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="hire_date">Hire Date</label>
+          <input type="date" id="hire_date" name="hire_date" class="form-control" value="{{ profile.hire_date.strftime('%Y-%m-%d') if profile.hire_date else '' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="phone">Staff Phone Number</label>
+          <input type="text" id="phone" name="phone" class="form-control" value="{{ profile.phone or '' }}" placeholder="+1 (555) 000-0000">
+        </div>
+
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="address">Residential Address</label>
+          <input type="text" id="address" name="address" class="form-control" value="{{ profile.address or '' }}" placeholder="City, Street, Apt">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="emergency_contact">Emergency Contact Person & Relation</label>
+          <input type="text" id="emergency_contact" name="emergency_contact" class="form-control" value="{{ profile.emergency_contact or '' }}" placeholder="Name, relation...">
+        </div>
+
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="emergency_contact_phone">Emergency Contact Phone</label>
+          <input type="text" id="emergency_contact_phone" name="emergency_contact_phone" class="form-control" value="{{ profile.emergency_contact_phone or '' }}" placeholder="+1 (555) 000-0000">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="notes">Internal Management Notes</label>
+        <textarea id="notes" name="notes" class="form-control" rows="3" placeholder="Performance notes, certifications, availability preferences...">{{ profile.notes or '' }}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary">Save Profile & Wage</button>
+        <a href="{{ url_for('employees.index') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

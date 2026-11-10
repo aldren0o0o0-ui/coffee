@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Recipe Builder - {{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Recipe (BOM): {{ product.name }}</h1>
+    <p>Category: <strong>{{ product.category.name }}</strong> | Retail Price: <strong>{{ format_currency(product.base_price) }}</strong></p>
+  </div>
+  <a href="{{ url_for('recipes.index') }}" class="btn btn-secondary">&larr; Back to Recipes</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+  <!-- Recipe Form -->
+  <div class="card">
+    <div class="card-header">
+      <h3>Formulation Components</h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="addRecipeIngredientRow()">+ Add Ingredient Row</button>
+    </div>
+
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div id="recipe-items-container" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+        {% if recipe and recipe.items %}
+          {% for item in recipe.items %}
+            <div class="recipe-item-row" style="display: flex; gap: 0.75rem; align-items: center; background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <div style="flex: 2;">
+                <select name="ingredient_id[]" class="form-control form-select" required>
+                  {% for ing in all_ingredients %}
+                    <option value="{{ ing.id }}" {% if item.ingredient_id == ing.id %}selected{% endif %}>
+                      {{ ing.name }} ({{ ing.unit }}) - {{ currency_symbol }}{{ ing.cost_per_unit }}/{{ ing.unit }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div style="flex: 1;">
+                <input type="number" step="0.001" min="0.001" name="quantity_required[]" class="form-control" value="{{ item.quantity_required }}" placeholder="Qty" required>
+              </div>
+              <button type="button" class="btn btn-danger btn-sm" onclick="removeRecipeRow(this)" title="Remove">&times;</button>
+            </div>
+          {% endfor %}
+        {% else %}
+          <!-- Default initial row -->
+          <div class="recipe-item-row" style="display: flex; gap: 0.75rem; align-items: center; background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <div style="flex: 2;">
+              <select name="ingredient_id[]" class="form-control form-select" required>
+                <option value="">-- Choose Raw Ingredient --</option>
+                {% for ing in all_ingredients %}
+                  <option value="{{ ing.id }}">
+                    {{ ing.name }} ({{ ing.unit }}) - {{ currency_symbol }}{{ ing.cost_per_unit }}/{{ ing.unit }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <input type="number" step="0.001" min="0.001" name="quantity_required[]" class="form-control" placeholder="Required Quantity" required>
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeRecipeRow(this)" title="Remove">&times;</button>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="instructions">Barista Preparation Instructions & Notes</label>
+        <textarea id="instructions" name="instructions" class="form-control" placeholder="Extraction time (27-30s), milk steaming temperature, syrup pumps...">{{ recipe.instructions if recipe else '' }}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary">Save Recipe & Update COGS</button>
+        {% if recipe %}
+          <form method="POST" action="{{ url_for('recipes.delete', product_id=product.id) }}" onsubmit="return confirm('Delete this recipe?');" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger">Delete Recipe</button>
+          </form>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Cost Breakdown Card -->
+  <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+    <div class="card">
+      <div class="card-header">
+        <h3>Calculated Unit Economics</h3>
+      </div>
+      <div style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 0.75rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Retail Price:</span>
+          <strong style="color: #fff;">{{ format_currency(product.base_price) }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Total Ingredient COGS:</span>
+          <strong style="color: #ffb74d;">{{ format_currency(recipe.total_cost if recipe else 0) }}</strong>
+        </div>
+        <div style="border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Gross Profit per Cup:</span>
+          {% if recipe %}
+            <strong style="color: #81c784;">{{ format_currency(product.base_price - recipe.total_cost) }}</strong>
+          {% else %}
+            <strong style="color: var(--text-dim);">-</strong>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="background: rgba(200, 135, 70, 0.08); border-color: var(--primary-border);">
+      <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--accent);">⚡ Auto Inventory Deduction</h4>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Every time this drink is ordered and paid for at the POS Register, the ingredients listed here will be subtracted from the live stock in real time!
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Template for adding new ingredient row via JavaScript -->
+<template id="recipe-row-template">
+  <div class="recipe-item-row" style="display: flex; gap: 0.75rem; align-items: center; background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); animation: fadeIn 0.2s ease;">
+    <div style="flex: 2;">
+      <select name="ingredient_id[]" class="form-control form-select" required>
+        <option value="">-- Choose Raw Ingredient --</option>
+        {% for ing in all_ingredients %}
+          <option value="{{ ing.id }}">
+            {{ ing.name }} ({{ ing.unit }}) - {{ currency_symbol }}{{ ing.cost_per_unit }}/{{ ing.unit }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1;">
+      <input type="number" step="0.001" min="0.001" name="quantity_required[]" class="form-control" placeholder="Qty" required>
+    </div>
+    <button type="button" class="btn btn-danger btn-sm" onclick="removeRecipeRow(this)" title="Remove">&times;</button>
+  </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modules/recipes.js') }}"></script>
+{% endblock %}

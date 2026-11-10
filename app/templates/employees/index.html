@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Directory & Shifts{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Staff Directory & Roster</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">Employees, hourly wage rates, and shift schedules</div>
+  </div>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <a href="{{ url_for('employees.schedules') }}" class="btn btn-secondary">Shift Schedules</a>
+    <a href="{{ url_for('employees.attendance') }}" class="btn btn-secondary">Attendance Board</a>
+    <a href="{{ url_for('users.create') }}" class="btn btn-primary">+ Add Staff</a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="stat-grid" style="margin-bottom: 1.5rem;">
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Active Staff</span>
+      <div class="stat-icon-wrapper">
+        <svg viewBox="0 0 24 24">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value">{{ total_active_staff }}</div>
+    <div class="stat-meta">
+      <span>Baristas, cashiers & floor staff</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">On Duty Now</span>
+      <div class="stat-icon-wrapper" style="color: var(--success);">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value" style="color: var(--success);">{{ on_duty_count }}</div>
+    <div class="stat-meta">
+      <span>Clocked-in personnel</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Today's Shifts</span>
+      <div class="stat-icon-wrapper" style="color: var(--primary);">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value">{{ today_schedules_count }}</div>
+    <div class="stat-meta">
+      <span>Scheduled roster coverage</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Quick Actions</span>
+    </div>
+    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+      <a href="{{ url_for('employees.create_schedule') }}" class="btn btn-secondary btn-sm" style="flex: 1; text-align: center;">+ Schedule</a>
+      <a href="{{ url_for('employees.my_shifts') }}" class="btn btn-primary btn-sm" style="flex: 1; text-align: center;">My Shifts</a>
+    </div>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('employees.index') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 2; min-width: 200px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Search Employee</label>
+      <input type="text" name="q" class="form-control" placeholder="Search by name, email, code..." value="{{ search_query }}">
+    </div>
+
+    <div style="flex: 1; min-width: 150px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">System Role</label>
+      <select name="role" class="form-control">
+        <option value="">All Roles</option>
+        <option value="MANAGER" {% if selected_role == 'MANAGER' %}selected{% endif %}>Manager</option>
+        <option value="CASHIER" {% if selected_role == 'CASHIER' %}selected{% endif %}>Cashier</option>
+        <option value="BARISTA" {% if selected_role == 'BARISTA' %}selected{% endif %}>Barista</option>
+        <option value="STAFF" {% if selected_role == 'STAFF' %}selected{% endif %}>Staff</option>
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 150px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Employment Status</label>
+      <select name="status" class="form-control">
+        <option value="">All Statuses</option>
+        <option value="ACTIVE" {% if selected_status == 'ACTIVE' %}selected{% endif %}>Active</option>
+        <option value="ON_LEAVE" {% if selected_status == 'ON_LEAVE' %}selected{% endif %}>On Leave</option>
+        <option value="SUSPENDED" {% if selected_status == 'SUSPENDED' %}selected{% endif %}>Suspended</option>
+        <option value="TERMINATED" {% if selected_status == 'TERMINATED' %}selected{% endif %}>Terminated</option>
+      </select>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-secondary">Filter</button>
+      <a href="{{ url_for('employees.index') }}" class="btn btn-outline" style="border: 1px solid var(--border-color); color: var(--text-dim);">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Staff Directory Table -->
+<div class="card">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <h3>Employees ({{ users|length }})</h3>
+  </div>
+
+  {% if users %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Employee</th>
+            <th>Position / Role</th>
+            <th>Status</th>
+            <th>Wage Rate</th>
+            <th>Contact Phone</th>
+            <th>Hire Date</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+            {% set prof = u.employee_profile %}
+            <tr>
+              <td>
+                <span class="badge" style="background: rgba(217, 119, 6, 0.15); color: var(--accent); font-family: monospace; font-size: 0.78rem;">
+                  {{ prof.employee_code if prof else 'EMP-0000' }}
+                </span>
+              </td>
+              <td>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); border: 1px solid var(--border-color);">
+                    {{ u.first_name[0]|upper }}{{ u.last_name[0]|upper }}
+                  </div>
+                  <div>
+                    <strong style="color: #fff; font-size: 0.95rem;">{{ u.full_name }}</strong>
+                    <div style="font-size: 0.78rem; color: var(--text-dim);">{{ u.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div style="font-weight: 500;">{{ prof.position if prof else 'Staff' }}</div>
+                <span class="badge badge-primary" style="font-size: 0.68rem; margin-top: 0.2rem;">{{ u.role }}</span>
+              </td>
+              <td>
+                {% if prof and prof.employment_status == 'ACTIVE' %}
+                  <span class="badge badge-success">Active</span>
+                {% elif prof and prof.employment_status == 'ON_LEAVE' %}
+                  <span class="badge badge-warning">On Leave</span>
+                {% elif prof and prof.employment_status == 'SUSPENDED' %}
+                  <span class="badge badge-danger">Suspended</span>
+                {% else %}
+                  <span class="badge badge-secondary">Inactive</span>
+                {% endif %}
+              </td>
+              <td>
+                <span style="font-weight: 700; color: var(--accent);">
+                  {{ format_currency(prof.hourly_rate if prof else 15.0) }} / hr
+                </span>
+              </td>
+              <td style="font-size: 0.88rem; color: var(--text-muted);">
+                {{ prof.phone if prof and prof.phone else '-' }}
+              </td>
+              <td style="font-size: 0.88rem; color: var(--text-dim);">
+                {{ prof.hire_date if prof and prof.hire_date else '-' }}
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                  <a href="{{ url_for('employees.profile', user_id=u.id) }}" class="btn btn-secondary btn-sm" title="Edit compensation & profile">
+                    Edit Profile
+                  </a>
+                  <a href="{{ url_for('employees.schedules', employee_id=prof.id if prof else 0) }}" class="btn btn-outline btn-sm" title="View shifts schedule" style="border: 1px solid var(--border-color); color: var(--text-dim);">
+                    Shifts
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem;">
+      <div style="font-size: 2.5rem; margin-bottom: 0.5rem; opacity: 0.6;">👥</div>
+      <h3 style="margin-bottom: 0.5rem;">No Employees Found</h3>
+      <p style="color: var(--text-dim); max-width: 400px; margin: 0 auto 1.5rem;">No staff members matched your current filter criteria.</p>
+      <a href="{{ url_for('employees.index') }}" class="btn btn-secondary">Clear Filters</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

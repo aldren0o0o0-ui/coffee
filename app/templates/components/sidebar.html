@@ -1,0 +1,256 @@
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+        <line x1="6" y1="1" x2="6" y2="4"></line>
+        <line x1="10" y1="1" x2="10" y2="4"></line>
+        <line x1="14" y1="1" x2="14" y2="4"></line>
+      </svg>
+    </div>
+    <div>
+      <div class="sidebar-brand-name" style="color: var(--text-main);">{{ store_name }}</div>
+      <div class="sidebar-brand-subtitle">Management Console</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">Overview</div>
+
+    <a href="{{ url_for('dashboard.index') }}"
+      class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+      </span>
+      <span>Dashboard</span>
+    </a>
+
+     {% if current_user.is_authenticated and current_user.has_permission('users.view') %}
+    <a href="{{ url_for('users.index') }}" class="nav-link {% if request.blueprint == 'users' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+      </span>
+      <span>Staff Accounts</span>
+    </a>
+    {% endif %} 
+
+    <div class="nav-section-title">Point of Sale</div>
+
+    {% if current_user.is_authenticated and current_user.has_permission('pos.view') %}
+    <a href="{{ url_for('pos.index') }}" class="nav-link {% if request.blueprint == 'pos' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </span>
+      <span>POS Register</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.has_permission('sales.view') %}
+    <a href="{{ url_for('sales.index') }}" class="nav-link {% if request.blueprint == 'sales' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </span>
+      <span>Sales & Receipts</span>
+    </a>
+    {% endif %}
+
+    <div class="nav-section-title">Catalog & Supply</div>
+
+    {% if current_user.is_authenticated and current_user.has_permission('catalog.view') %}
+    <a href="{{ url_for('catalog.index') }}" class="nav-link {% if request.blueprint == 'catalog' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+          </path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </span>
+      <span>Menu Products</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.has_permission('recipes.view') %}
+    <a href="{{ url_for('recipes.index') }}" class="nav-link {% if request.blueprint == 'recipes' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M14 2v4a2 2 0 0 0 2 2h4"></path>
+          <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"></path>
+          <path d="M3 13h6"></path>
+          <path d="M6 10v6"></path>
+        </svg>
+      </span>
+      <span>Recipes & BOM</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.has_permission('inventory.view') %}
+    <a href="{{ url_for('inventory.index') }}"
+      class="nav-link {% if request.blueprint == 'inventory' and request.endpoint == 'inventory.index' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z">
+          </path>
+          <path d="m3.3 7 8.7 5 8.7-5"></path>
+          <path d="M12 22V12"></path>
+        </svg>
+      </span>
+      <span>Inventory Overview</span>
+    </a>
+    <a href="{{ url_for('inventory.items') }}"
+      class="nav-link {% if request.endpoint == 'inventory.items' or request.endpoint == 'inventory.create_item' or request.endpoint == 'inventory.edit_item' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+      </span>
+      <span>Raw Material Items</span>
+    </a>
+    
+    {% if current_user.has_permission('inventory.view_movements') %}
+    <a href="{{ url_for('inventory.movements') }}"
+      class="nav-link {% if request.endpoint == 'inventory.movements' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+          <polyline points="17 6 23 6 23 12"></polyline>
+        </svg>
+      </span>
+      <span>Stock Movements</span>
+    </a>
+    {% endif %}
+    {% endif %}
+
+    <div class="nav-section-title">Staff & Shifts</div>
+
+    {% if current_user.is_authenticated and current_user.has_permission('employees.view') %}
+    <a href="{{ url_for('employees.index') }}"
+      class="nav-link {% if request.blueprint == 'employees' and request.endpoint == 'employees.index' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <polyline points="16 11 18 13 22 9"></polyline>
+        </svg>
+      </span>
+      <span>Staff Directory</span>
+    </a>
+    {% endif %}
+
+    <a href="{{ url_for('employees.my_shifts') }}"
+      class="nav-link {% if request.endpoint == 'employees.my_shifts' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </span>
+      <span>My Shifts & Clock</span>
+    </a>
+
+    {% if current_user.is_authenticated and current_user.has_permission('attendance.view') %}
+    <a href="{{ url_for('employees.attendance') }}"
+      class="nav-link {% if request.endpoint == 'employees.attendance' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M9 11l3 3L22 4"></path>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+      </span>
+      <span>Attendance Board</span>
+    </a>
+    {% endif %}
+
+    <div class="nav-section-title">Finance & Analytics</div>
+
+    {% if current_user.is_authenticated and current_user.has_permission('expenses.view') %}
+    <a href="{{ url_for('expenses.index') }}"
+      class="nav-link {% if request.blueprint == 'expenses' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+          <line x1="2" y1="10" x2="22" y2="10"></line>
+        </svg>
+      </span>
+      <span>Operating Expenses</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.has_permission('reports.view') %}
+    <a href="{{ url_for('reports.index') }}" class="nav-link {% if request.blueprint == 'reports' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+      </span>
+      <span>Financial P&L & Reports</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_authenticated and (current_user.is_owner or current_user.is_manager_or_above) %}
+    <div class="nav-section-title">System & Settings</div>
+
+    {% if current_user.is_owner %}
+    <a href="{{ url_for('settings.index') }}" class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </span>
+      <span>Store Settings</span>
+    </a>
+    {% endif %}
+
+    <a href="{{ url_for('audit.index') }}" class="nav-link {% if request.blueprint == 'audit' %}active{% endif %}">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      </span>
+      <span>Audit Logs</span>
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.74rem; color: var(--text-dim);">
+      <span class="status-dot online"></span>
+      <span>Store Active</span>
+    </div>
+    <a href="{{ url_for('auth.profile') }}" style="font-size: 0.78rem; color: var(--text-muted);"
+      title="My Profile">Profile</a>
+  </div>
+</aside>

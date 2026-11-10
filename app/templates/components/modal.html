@@ -1,0 +1,16 @@
+<div id="{{ modal_id }}" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 style="font-size: 1.15rem; color: #fff;">{{ modal_title }}</h3>
+      <button type="button" onclick="closeModal('{{ modal_id }}')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+    </div>
+    <div class="modal-body">
+      {{ modal_body | safe }}
+    </div>
+    {% if modal_footer %}
+      <div class="modal-footer">
+        {{ modal_footer | safe }}
+      </div>
+    {% endif %}
+  </div>
+</div>

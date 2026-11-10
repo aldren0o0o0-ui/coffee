@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Expense Categories{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Expense Categories</h1>
+    <p>Manage overhead classifications, cost centers, and category codes</p>
+  </div>
+  <a href="{{ url_for('expenses.index') }}" class="btn btn-secondary">&larr; Back to Expenses</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+  <!-- Add Category Card -->
+  <div class="card">
+    <div class="card-header">
+      <h3>Add Category</h3>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="name">Category Name *</label>
+        <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Store Lease or Marketing" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="code">Category Code</label>
+        <input type="text" id="code" name="code" class="form-control" placeholder="e.g. RENT, UTIL (auto-generated if empty)" style="text-transform: uppercase;">
+        <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">2-32 alphanumeric uppercase characters</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="description">Description</label>
+        <textarea id="description" name="description" class="form-control" rows="2" placeholder="Optional category scope or notes..."></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Create Category</button>
+    </form>
+  </div>
+
+  <!-- Configured Categories Table -->
+  <div class="card">
+    <div class="card-header">
+      <h3>Configured Expense Categories</h3>
+      <span class="badge badge-secondary">{{ categories|length }} categories</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Entries</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in categories %}
+            <tr>
+              <td>
+                <span class="badge badge-primary" style="font-family: monospace;">{{ c.code }}</span>
+              </td>
+              <td><strong style="color: #fff;">{{ c.name }}</strong></td>
+              <td style="color: var(--text-muted); font-size: 0.85rem;">{{ c.description or '-' }}</td>
+              <td>
+                {% if c.is_active %}
+                  <span class="badge badge-success">Active</span>
+                {% else %}
+                  <span class="badge badge-secondary">Inactive</span>
+                {% endif %}
+              </td>
+              <td><span class="badge badge-secondary">{{ c.expenses.count() }}</span></td>
+              <td style="text-align: right;">
+                <form method="POST" action="{{ url_for('expenses.toggle_category', category_id=c.id) }}" style="display: inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-secondary btn-sm" title="Toggle active status">
+                    {% if c.is_active %}Deactivate{% else %}Activate{% endif %}
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

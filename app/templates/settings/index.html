@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Store Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Store Settings</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">Branding, currency, tax rates, and thermal receipt template</div>
+  </div>
+</div>
+
+<div style="max-width: 700px;">
+  <div class="card">
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-group">
+        <label class="form-label" for="store_name">Store Brand Name *</label>
+        <input type="text" id="store_name" name="store_name" class="form-control" value="{{ settings.store_name }}" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="currency_symbol">Currency Symbol *</label>
+          <input type="text" id="currency_symbol" name="currency_symbol" class="form-control" value="{{ settings.currency_symbol }}" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="tax_rate">Default Sales Tax Rate (e.g. 0.08 for 8%) *</label>
+          <input type="number" step="0.001" min="0" max="1" id="tax_rate" name="tax_rate" class="form-control" value="{{ settings.tax_rate }}" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="receipt_header">Receipt Header Message</label>
+        <textarea id="receipt_header" name="receipt_header" class="form-control" placeholder="Welcome message, store address...">{{ settings.receipt_header }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="receipt_footer">Receipt Footer Message</label>
+        <textarea id="receipt_footer" name="receipt_footer" class="form-control" placeholder="Thank you note, WiFi code, social handle...">{{ settings.receipt_footer }}</textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Save Store Settings</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

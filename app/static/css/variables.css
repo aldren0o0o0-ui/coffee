@@ -1,0 +1,62 @@
+:root {
+  /* =========================================================
+     ARTISAN COFFEE — LIGHT COFFEE THEME
+     Warm, professional, clean, modern
+     ========================================================= */
+
+  /* ---------- Main Surfaces ---------- */
+  --bg-dark: #f7f3ed;
+  --bg-card: #fffdf9;
+  --bg-card-hover: #f5eee6;
+  --bg-subtle: #f3ede5;
+
+  /* ---------- Coffee / Brand Colors ---------- */
+  --primary: #a96f32;
+  --primary-hover: #925c25;
+  --primary-light: rgba(169, 111, 50, 0.10);
+  --primary-border: rgba(169, 111, 50, 0.25);
+
+  --secondary: #806b5b;
+  --accent: #b87935;
+
+  /* ---------- Semantic Colors ---------- */
+  --success: #2f8a4c;
+  --success-bg: #e8f5eb;
+
+  --warning: #c87516;
+  --warning-bg: #fff1dc;
+
+  --danger: #d64545;
+  --danger-bg: #fdeaea;
+
+  --info: #2478a8;
+  --info-bg: #e8f3f9;
+
+  /* ---------- Typography ---------- */
+  --text-main: #35271f;
+  --text: #35271f;
+  --text-muted: #75685e;
+  --text-dim: #9a8c80;
+
+  /* ---------- Borders ---------- */
+  --border-color: #e3d8cb;
+  --border-subtle: #eee7df;
+
+  /* ---------- Radius ---------- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-sm: 0 1px 3px rgba(72, 48, 31, 0.08);
+  --shadow-md: 0 4px 12px rgba(72, 48, 31, 0.09);
+  --shadow-lg: 0 8px 24px rgba(72, 48, 31, 0.12);
+
+  /* ---------- Typography ---------- */
+  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
+
+  /* ---------- Layout ---------- */
+  --sidebar-width: 260px;
+}

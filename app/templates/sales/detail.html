@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction {{ sale.invoice_no }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <h1>Transaction #{{ sale.invoice_no }}</h1>
+      {% if sale.status == 'completed' %}
+        <span class="badge badge-success">Completed</span>
+      {% elif sale.status == 'partially_refunded' %}
+        <span class="badge badge-warning">Partially Refunded</span>
+      {% elif sale.status == 'refunded' %}
+        <span class="badge badge-danger">Refunded</span>
+      {% elif sale.status == 'voided' %}
+        <span class="badge badge-secondary">Voided</span>
+      {% endif %}
+    </div>
+    <p>Logged by <strong>{{ sale.cashier.full_name if sale.cashier else 'Staff' }}</strong> on {{ format_datetime(sale.created_at) }}{% if sale.shift_id %} (Shift #{{ sale.shift_id }}){% endif %}</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{{ url_for('sales.receipt', sale_id=sale.id) }}" target="_blank" class="btn btn-primary">🖨️ View Thermal Receipt</a>
+    <a href="{{ url_for('sales.index') }}" class="btn btn-secondary">&larr; Back to Sales</a>
+  </div>
+</div>
+
+{% if sale.status == 'voided' %}
+  <div class="card" style="margin-bottom: 1.5rem; border-color: rgba(239, 83, 80, 0.4); background: rgba(239, 83, 80, 0.08);">
+    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+      <span style="font-size: 1.5rem;">⚠️</span>
+      <div>
+        <h4 style="color: #ef5350; margin: 0 0 0.25rem 0;">Transaction Voided</h4>
+        <p style="margin: 0; font-size: 0.9rem; color: var(--text-dim);">
+          This sale was voided on <strong>{{ format_datetime(sale.voided_at) }}</strong> by <strong>{{ sale.voided_by.full_name if sale.voided_by else 'Manager' }}</strong>.
+          <br>Reason: <em>{{ sale.void_reason or 'No reason provided' }}</em>
+        </p>
+      </div>
+    </div>
+  </div>
+{% elif sale.status in ('refunded', 'partially_refunded') %}
+  <div class="card" style="margin-bottom: 1.5rem; border-color: rgba(255, 183, 77, 0.4); background: rgba(255, 183, 77, 0.08);">
+    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+      <span style="font-size: 1.5rem;">↩️</span>
+      <div>
+        <h4 style="color: #ffb74d; margin: 0 0 0.25rem 0;">Refund History</h4>
+        <p style="margin: 0; font-size: 0.9rem; color: var(--text-dim);">
+          Refund of <strong>{{ format_currency(sale.refund_amount) }}</strong> processed on <strong>{{ format_datetime(sale.refunded_at) }}</strong> by <strong>{{ sale.refunded_by.full_name if sale.refunded_by else 'Manager' }}</strong>.
+          <br>Reason: <em>{{ sale.refund_reason or 'Customer return / order adjustment' }}</em>
+        </p>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+  <!-- Order Items Card -->
+  <div class="card">
+    <div class="card-header">
+      <h3>Purchased Items (Historical Snapshot)</h3>
+      <span style="font-size: 0.85rem; color: var(--text-dim);">{{ sale.items|length }} line items</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Item & Modifiers</th>
+            <th>Unit Price</th>
+            <th>Qty</th>
+            <th style="text-align: right;">Line Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in sale.items %}
+            <tr>
+              <td>
+                <div style="font-weight: 600; color: var(--text-main);">
+                  {{ item.product_name }}
+                  {% if item.variant_name %}
+                    <span style="color: var(--accent); font-size: 0.85rem;">({{ item.variant_name }})</span>
+                  {% endif %}
+                </div>
+                {% if item.options_data %}
+                  <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem;">
+                    {% for opt in item.options_data %}
+                      {% if opt is mapping %}
+                        <span>+ {{ opt.name }}{% if opt.price_adjustment %} (+{{ format_currency(opt.price_adjustment) }}){% endif %}</span>{% if not loop.last %}, {% endif %}
+                      {% else %}
+                        <span>+ {{ opt }}</span>{% if not loop.last %}, {% endif %}
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </td>
+              <td style="color: var(--text-dim);">{{ format_currency(item.unit_price) }}</td>
+              <td><strong>x{{ item.quantity }}</strong></td>
+              <td style="text-align: right; font-weight: 700; color: var(--accent);">{{ format_currency(item.subtotal) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Financial Breakdown -->
+    <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+      <div style="width: 300px; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.95rem;">
+        <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+          <span>Subtotal:</span>
+          <span style="color: var(--text-main); font-weight: 600;">{{ format_currency(sale.subtotal_amount) }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+          <span>Tax:</span>
+          <span style="color: var(--text-main); font-weight: 600;">{{ format_currency(sale.tax_amount) }}</span>
+        </div>
+        {% if sale.discount_amount > 0 %}
+          <div style="display: flex; justify-content: space-between; color: var(--success);">
+            <span>Discount Applied:</span>
+            <span>&minus;{{ format_currency(sale.discount_amount) }}</span>
+          </div>
+        {% endif %}
+        <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 0.5rem; color: var(--text-main);">
+          <span>Gross Total:</span>
+          <span {% if sale.status == 'voided' %}style="text-decoration: line-through; color: var(--text-dim);"{% endif %}>{{ format_currency(sale.total_amount) }}</span>
+        </div>
+        {% if sale.refund_amount > 0 %}
+          <div style="display: flex; justify-content: space-between; color: #ef5350; font-weight: 600;">
+            <span>Refunded Total:</span>
+            <span>&minus;{{ format_currency(sale.refund_amount) }}</span>
+          </div>
+        {% endif %}
+        <div style="display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 0.5rem; color: var(--accent);">
+          <span>Net Revenue:</span>
+          <span>{{ format_currency(sale.net_amount) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Ledger & Management Actions -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- Authoritative Payment Ledger Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Payment Records</h3>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.9rem;">
+        <div>Customer: <strong style="color: var(--text-main);">{{ sale.customer_name }}</strong></div>
+        <div>Primary Method: <span class="badge badge-primary">{{ sale.payment_method }}</span></div>
+        {% if sale.payment_method == 'Cash' %}
+          <div>Cash Tendered: <strong>{{ format_currency(sale.cash_tendered) }}</strong></div>
+          <div>Change Returned: <strong>{{ format_currency(sale.change_due) }}</strong></div>
+        {% endif %}
+
+        <div style="margin-top: 0.5rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.4rem;">Payment Ledger Entries</div>
+          {% if sale.payments %}
+            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+              {% for p in sale.payments %}
+                <div style="background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 600; color: var(--text-main);">{{ p.payment_method }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-dim);">{{ format_datetime(p.created_at) }}</div>
+                  </div>
+                  <div style="text-align: right;">
+                    {% if p.amount < 0 %}
+                      <div style="font-weight: 700; color: #ef5350;">
+                        {{ format_currency(p.amount) }}
+                      </div>
+                    {% else %}
+                      <div style="font-weight: 700; color: var(--accent);">
+                        {{ format_currency(p.amount) }}
+                      </div>
+                    {% endif %}
+                    <span class="badge {% if p.status == 'SUCCESS' %}badge-success{% elif p.status == 'REFUNDED' %}badge-danger{% else %}badge-secondary{% endif %}" style="font-size: 0.7rem;">
+                      {{ p.status }}
+                    </span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div style="font-size: 0.85rem; color: var(--text-dim);">No payment entries logged.</div>
+          {% endif %}
+        </div>
+
+        {% if sale.notes %}
+          <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.85rem;">
+            <strong>Internal Notes:</strong> {{ sale.notes }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Manager Actions: Refund & Void -->
+    {% if current_user.is_manager_or_above %}
+      {% if sale.is_refundable %}
+        <div class="card" style="border-color: rgba(239, 83, 80, 0.4);">
+          <div class="card-header">
+            <h3 style="color: #ef5350;">Issue Refund</h3>
+          </div>
+          <form method="POST" action="{{ url_for('sales.refund', sale_id=sale.id) }}" onsubmit="return confirm('Confirm refund for this order?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label" for="amount">Refund Amount ($) *</label>
+              <input type="number" step="0.01" min="0.01" max="{{ sale.net_amount }}" id="amount" name="amount" class="form-control" value="{{ sale.net_amount }}" required>
+              <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Max refundable: {{ format_currency(sale.net_amount) }}</div>
+            </div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label" for="refund_reason">Refund Reason *</label>
+              <input type="text" id="refund_reason" name="reason" class="form-control" placeholder="e.g. Order canceled or incorrect item" required>
+            </div>
+            <button type="submit" class="btn btn-danger btn-block">Process Refund</button>
+          </form>
+        </div>
+      {% endif %}
+
+      {% if sale.is_voidable %}
+        <div class="card" style="border-color: rgba(158, 158, 158, 0.4);">
+          <div class="card-header">
+            <h3 style="color: var(--text-dim);">Void Transaction</h3>
+          </div>
+          <form method="POST" action="{{ url_for('sales.void', sale_id=sale.id) }}" onsubmit="return confirm('Are you sure you want to VOID this transaction? This action is permanent and non-reversible.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label" for="void_reason">Void Reason *</label>
+              <input type="text" id="void_reason" name="reason" class="form-control" placeholder="e.g. Cashier error, duplicate entry" required>
+            </div>
+            <button type="submit" class="btn btn-secondary btn-block" style="border-color: #ef5350; color: #ef5350;">Void Sale</button>
+          </form>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

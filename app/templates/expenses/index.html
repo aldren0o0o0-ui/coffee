@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Operating Expenses & Overhead Ledger{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Operating Expenses</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">Rent, utilities, maintenance, and store overhead</div>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{{ url_for('expenses.categories') }}" class="btn btn-secondary">Categories</a>
+    <a href="{{ url_for('expenses.create') }}" class="btn btn-primary">+ Add Expense</a>
+  </div>
+</div>
+
+<!-- Expense KPI Summary Cards -->
+<div class="stat-grid" style="margin-bottom: 1.5rem;">
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">This Month</span>
+      <div class="stat-icon-wrapper" style="color: var(--danger);">
+        <svg viewBox="0 0 24 24">
+          <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+          <line x1="2" y1="10" x2="22" y2="10"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value" style="color: var(--danger);">{{ format_currency(summary.month_total) }}</div>
+    <div class="stat-meta">
+      <span>Current month total</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">This Week</span>
+      <div class="stat-icon-wrapper" style="color: var(--warning);">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value" style="color: var(--warning);">{{ format_currency(summary.week_total) }}</div>
+    <div class="stat-meta">
+      <span>Monday to present</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Today</span>
+      <div class="stat-icon-wrapper" style="color: var(--primary);">
+        <svg viewBox="0 0 24 24">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value">{{ format_currency(summary.today_total) }}</div>
+    <div class="stat-meta">
+      <span>Recorded today</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Filtered Total</span>
+      <div class="stat-icon-wrapper" style="color: var(--accent);">
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value" style="color: var(--accent);">{{ format_currency(summary.period_total) }}</div>
+    <div class="stat-meta">
+      <span>{{ summary.active_count }} active entries</span>
+    </div>
+  </div>
+</div>
+
+<!-- Category Breakdown Section -->
+{% if breakdown %}
+  <div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+    <div style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.75rem;">
+      Operating Cost Breakdown by Category
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      {% for b in breakdown %}
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.6rem 0.9rem; min-width: 150px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <span style="font-weight: 600; color: #fff; font-size: 0.85rem;">{{ b.name }}</span>
+            <span class="badge badge-secondary" style="font-size: 0.7rem;">{{ b.percentage }}%</span>
+          </div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent);">{{ format_currency(b.total_amount) }}</div>
+          <div style="font-size: 0.72rem; color: var(--text-dim);">{{ b.count }} entries</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+<!-- Search & Filter Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+  <form method="GET" action="{{ url_for('expenses.index') }}" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 2; min-width: 180px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.3rem;">Search Title / Vendor</label>
+      <input type="text" name="q" class="form-control" placeholder="Search title, payee, #..." value="{{ search }}">
+    </div>
+
+    <div style="flex: 1; min-width: 150px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.3rem;">Category</label>
+      <select name="category_id" class="form-control form-select">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if selected_category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 130px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.3rem;">Payment Method</label>
+      <select name="payment_method" class="form-control form-select">
+        <option value="">All Methods</option>
+        {% for pm in payment_methods %}
+          <option value="{{ pm }}" {% if selected_payment_method == pm %}selected{% endif %}>{{ pm }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 120px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.3rem;">Status</label>
+      <select name="status" class="form-control form-select">
+        <option value="">All Statuses</option>
+        {% for st in statuses %}
+          <option value="{{ st }}" {% if selected_status == st %}selected{% endif %}>{{ st|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+      <div>
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.3rem;">From</label>
+        <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+      </div>
+      <div>
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.3rem;">To</label>
+        <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-primary">Filter</button>
+      <a href="{{ url_for('expenses.index') }}" class="btn btn-secondary">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Expenses Table -->
+{% if pagination.items %}
+  <div class="table-responsive card" style="padding: 0; overflow: hidden;">
+    <table class="table" style="margin-bottom: 0;">
+      <thead>
+        <tr>
+          <th>Expense #</th>
+          <th>Date</th>
+          <th>Title & Vendor</th>
+          <th>Category</th>
+          <th>Method</th>
+          <th>Status</th>
+          <th>Amount</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for exp in pagination.items %}
+          <tr {% if exp.status == 'VOIDED' %}style="opacity: 0.6; background: rgba(0,0,0,0.15);"{% endif %}>
+            <td>
+              <a href="{{ url_for('expenses.detail', expense_id=exp.id) }}">
+                <strong style="color: {% if exp.status == 'VOIDED' %}var(--text-dim){% else %}var(--accent){% endif %}; font-family: monospace;">{{ exp.expense_number }}</strong>
+              </a>
+            </td>
+            <td style="font-size: 0.85rem; color: var(--text-dim); white-space: nowrap;">
+              {{ exp.expense_date.strftime("%b %d, %Y") }}
+            </td>
+            <td>
+              <div style="font-weight: 600; color: #fff;">{{ exp.title }}</div>
+              {% if exp.vendor_payee %}
+                <div style="font-size: 0.78rem; color: var(--text-dim);">Payee: {{ exp.vendor_payee }}</div>
+              {% endif %}
+            </td>
+            <td><span class="badge badge-warning">{{ exp.category.name }}</span></td>
+            <td><span class="badge badge-primary">{{ exp.payment_method }}</span></td>
+            <td>
+              {% if exp.status == 'RECORDED' %}
+                <span class="badge badge-success">Recorded</span>
+              {% elif exp.status == 'VOIDED' %}
+                <span class="badge badge-secondary">Voided</span>
+              {% else %}
+                <span class="badge badge-secondary">{{ exp.status }}</span>
+              {% endif %}
+            </td>
+            <td style="font-weight: 700; color: {% if exp.status == 'VOIDED' %}var(--text-dim); text-decoration: line-through;{% else %}#ef5350{% endif %};">
+              {{ format_currency(exp.amount) }}
+            </td>
+            <td style="text-align: right; white-space: nowrap;">
+              <a href="{{ url_for('expenses.detail', expense_id=exp.id) }}" class="btn btn-secondary btn-sm">View</a>
+              {% if exp.is_editable %}
+                <a href="{{ url_for('expenses.edit', expense_id=exp.id) }}" class="btn btn-secondary btn-sm">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "components/pagination.html" %}
+{% else %}
+  {% include "components/empty_state.html" %}
+{% endif %}
+{% endblock %}

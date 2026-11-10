@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Expense {{ expense.expense_number }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <h1>Expense #{{ expense.expense_number }}</h1>
+      {% if expense.status == 'RECORDED' %}
+        <span class="badge badge-success">Recorded</span>
+      {% elif expense.status == 'VOIDED' %}
+        <span class="badge badge-secondary">Voided</span>
+      {% else %}
+        <span class="badge badge-warning">{{ expense.status }}</span>
+      {% endif %}
+    </div>
+    <p>Logged by <strong>{{ expense.recorded_by.full_name if expense.recorded_by else 'System' }}</strong> on {{ format_datetime(expense.created_at) }}</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    {% if expense.is_editable %}
+      <a href="{{ url_for('expenses.edit', expense_id=expense.id) }}" class="btn btn-secondary">Edit Expense</a>
+    {% endif %}
+    <a href="{{ url_for('expenses.index') }}" class="btn btn-secondary">&larr; Back to Expenses</a>
+  </div>
+</div>
+
+{% if expense.status == 'VOIDED' %}
+  <div class="card" style="margin-bottom: 1.5rem; border-color: rgba(239, 83, 80, 0.4); background: rgba(239, 83, 80, 0.08);">
+    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+      <span style="font-size: 1.5rem;">⚠️</span>
+      <div>
+        <h4 style="color: #ef5350; margin: 0 0 0.25rem 0;">Expense Record Voided</h4>
+        <p style="margin: 0; font-size: 0.9rem; color: var(--text-dim);">
+          This expense was voided on <strong>{{ format_datetime(expense.voided_at) }}</strong> by <strong>{{ expense.voided_by.full_name if expense.voided_by else 'Manager' }}</strong>.
+          <br>Reason: <em>{{ expense.void_reason or 'No reason provided' }}</em>
+        </p>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+  <!-- Expense Information Card -->
+  <div class="card">
+    <div class="card-header">
+      <h3>Expense Details</h3>
+      <span class="badge badge-primary">{{ expense.category.name }}</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 1.25rem; font-size: 0.95rem;">
+      <div>
+        <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">Description / Title</div>
+        <div style="font-size: 1.2rem; font-weight: 600; color: #fff;">{{ expense.title }}</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+        <div>
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">Amount</div>
+          <div style="font-size: 1.4rem; font-weight: 700; color: {% if expense.status == 'VOIDED' %}var(--text-dim); text-decoration: line-through;{% else %}#ef5350{% endif %};">
+            {{ format_currency(expense.amount) }}
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">Expense Date</div>
+          <div style="font-weight: 600; color: #fff;">{{ expense.expense_date.strftime("%B %d, %Y") }}</div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">Payment Method</div>
+          <div><span class="badge badge-primary">{{ expense.payment_method }}</span></div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">Vendor / Payee</div>
+          <div style="color: #fff;">{{ expense.vendor_payee or 'Not specified' }}</div>
+        </div>
+      </div>
+
+      {% if expense.notes %}
+        <div style="border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">Notes & Reference</div>
+          <div style="color: var(--text-muted); line-height: 1.5; white-space: pre-line;">{{ expense.notes }}</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Audit & Actions Card -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <div class="card">
+      <div class="card-header">
+        <h3>Audit Metadata</h3>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.85rem; color: var(--text-muted);">
+        <div>Record ID: <strong style="color: #fff;">#{{ expense.id }}</strong></div>
+        <div>Reference Code: <strong style="color: #fff; font-family: monospace;">{{ expense.expense_number }}</strong></div>
+        <div>Category Code: <strong style="color: #fff;">{{ expense.category.code }}</strong></div>
+        <div>Logged By: <strong style="color: #fff;">{{ expense.recorded_by.full_name if expense.recorded_by else 'System' }}</strong></div>
+        <div>Created At: <span style="color: var(--text-dim);">{{ format_datetime(expense.created_at) }}</span></div>
+        <div>Last Updated: <span style="color: var(--text-dim);">{{ format_datetime(expense.updated_at) }}</span></div>
+      </div>
+    </div>
+
+    <!-- Void Action -->
+    {% if expense.is_voidable and current_user.is_manager_or_above %}
+      <div class="card" style="border-color: rgba(239, 83, 80, 0.4);">
+        <div class="card-header">
+          <h3 style="color: #ef5350;">Void Expense</h3>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">
+          Voiding marks this expense invalid in all financial reports while preserving complete audit history.
+        </p>
+        <form method="POST" action="{{ url_for('expenses.void', expense_id=expense.id) }}" onsubmit="return confirm('Are you sure you want to VOID this expense record?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label" for="void_reason">Reason for Voiding *</label>
+            <input type="text" id="void_reason" name="reason" class="form-control" placeholder="e.g. Invoiced to incorrect vendor or duplicate entry" required>
+          </div>
+          <button type="submit" class="btn btn-danger btn-block">Void Expense</button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

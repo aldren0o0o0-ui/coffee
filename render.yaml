@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: coffee-shop-sme
+    runtime: python
+    plan: starter
+    buildCommand: "pip install -r requirements.txt && flask db upgrade"
+    startCommand: "gunicorn wsgi:application"
+    healthCheckPath: /health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WTF_CSRF_ENABLED
+        value: "True"
+      - key: STORE_NAME
+        value: "John Coffee"
+      - key: CURRENCY_SYMBOL
+        value: "₱"
+      - key: DEFAULT_TAX_RATE
+        value: "0.08"

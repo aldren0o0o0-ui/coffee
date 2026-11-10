@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Labor & Attendance Report{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Staff Labor & Attendance Analytics</h1>
+    <p>Operational hours, wage expenses, punctuality metrics, and labor cost breakdown</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <a href="{{ url_for('employees.attendance') }}" class="btn btn-secondary">📋 Timesheets Board</a>
+    <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary">&larr; Executive Overview</a>
+  </div>
+</div>
+
+<!-- Sub-menu -->
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+  <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📊 Executive Overview</a>
+  <a href="{{ url_for('reports.profit_loss', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📑 P&L Statement</a>
+  <a href="{{ url_for('reports.products', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">☕ Product Sales & Margins</a>
+  <a href="{{ url_for('reports.inventory', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📦 Inventory & Valuation</a>
+  <a href="{{ url_for('reports.attendance', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-primary btn-sm">👥 Staff Labor & Hours</a>
+  <a href="{{ url_for('reports.registers', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">⚡ POS Register Audits</a>
+</div>
+
+<!-- Period Filter Selector -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('reports.attendance') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1.5; min-width: 160px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Time Period</label>
+      <select name="period" class="form-control" onchange="handlePeriodChange(this);">
+        <option value="today" {% if selected_period == 'today' %}selected{% endif %}>Today</option>
+        <option value="yesterday" {% if selected_period == 'yesterday' %}selected{% endif %}>Yesterday</option>
+        <option value="this_week" {% if selected_period == 'this_week' %}selected{% endif %}>This Week</option>
+        <option value="last_week" {% if selected_period == 'last_week' %}selected{% endif %}>Last Week</option>
+        <option value="this_month" {% if selected_period == 'this_month' %}selected{% endif %}>This Month</option>
+        <option value="last_month" {% if selected_period == 'last_month' %}selected{% endif %}>Last Month</option>
+        <option value="this_quarter" {% if selected_period == 'this_quarter' %}selected{% endif %}>This Quarter</option>
+        <option value="this_year" {% if selected_period == 'this_year' %}selected{% endif %}>This Year</option>
+        <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Custom Date Range</option>
+      </select>
+    </div>
+
+    <div id="custom-dates" style="display: {% if selected_period == 'custom' %}flex{% else %}none{% endif %}; gap: 0.75rem; flex-wrap: wrap; flex: 2;">
+      <div style="flex: 1; min-width: 130px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">From</label>
+        <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+      </div>
+      <div style="flex: 1; min-width: 130px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">To</label>
+        <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+      </div>
+      <div style="align-self: flex-end;">
+        <button type="submit" class="btn btn-secondary">Apply</button>
+      </div>
+    </div>
+
+    <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-dim); padding-bottom: 0.5rem;">
+      Period: <strong>{{ labor_data.period_label }}</strong>
+    </div>
+  </form>
+</div>
+
+<!-- KPI Cards -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div class="card stat-card" style="border-left: 4px solid var(--accent);">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Total Worked Hours</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #fff; margin-top: 0.35rem;">
+      {{ labor_data.overall_hours }} hrs
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Across all scheduled staff</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid #10b981;">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Total Labor Expense</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #10b981; margin-top: 0.35rem;">
+      {{ format_currency(labor_data.overall_labor_cost) }}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Calculated at individual wage rates</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid #3b82f6;">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Active Team Size</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #3b82f6; margin-top: 0.35rem;">
+      {{ labor_data.total_staff_active }} Members
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Roster capacity</div>
+  </div>
+</div>
+
+<!-- Staff Labor Breakdown Table -->
+<div class="card">
+  <div class="card-header">
+    <h3>Staff Labor & Hours Breakdown</h3>
+  </div>
+
+  {% if labor_data.staff %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Position</th>
+            <th>Status</th>
+            <th>Wage Rate</th>
+            <th>Shifts</th>
+            <th>Hours Worked</th>
+            <th>On-Time Rate</th>
+            <th>Late Shifts</th>
+            <th>Estimated Total Wages</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for st in labor_data.staff %}
+            <tr>
+              <td>
+                <strong style="color: #fff;">{{ st.name }}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-dim); font-family: monospace;">{{ st.employee_code }}</div>
+              </td>
+              <td>{{ st.position }}</td>
+              <td>
+                <span class="badge {% if st.status == 'ACTIVE' %}badge-success{% elif st.status == 'ON_LEAVE' %}badge-warning{% else %}badge-secondary{% endif %}">
+                  {{ st.status }}
+                </span>
+              </td>
+              <td style="color: var(--text-muted);">{{ format_currency(st.hourly_rate) }} / hr</td>
+              <td><strong>{{ st.total_shifts }}</strong></td>
+              <td style="font-weight: 700; color: var(--accent);">{{ st.total_hours }} hrs</td>
+              <td>
+                <span class="badge {% if st.on_time_pct >= 90 %}badge-success{% elif st.on_time_pct >= 75 %}badge-primary{% else %}badge-warning{% endif %}">
+                  {{ st.on_time_pct }}%
+                </span>
+              </td>
+              <td>
+                {% if st.late_shifts > 0 %}
+                  <span style="color: #f87171; font-weight: 600;">{{ st.late_shifts }}</span>
+                {% else %}
+                  <span style="color: var(--text-dim);">0</span>
+                {% endif %}
+              </td>
+              <td style="font-weight: 700; color: #10b981; font-size: 1rem;">
+                {{ format_currency(st.estimated_wages) }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-dim);">
+      <p style="margin: 0;">No staff labor data found for this period.</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function handlePeriodChange(selectEl) {
+  const customDiv = document.getElementById('custom-dates');
+  if (selectEl.value === 'custom') {
+    if (customDiv) customDiv.style.display = 'flex';
+    const startInput = document.querySelector('input[name="start_date"]');
+    if (startInput && !startInput.value) {
+      const today = new Date().toISOString().split('T')[0];
+      startInput.value = today;
+      const endInput = document.querySelector('input[name="end_date"]');
+      if (endInput && !endInput.value) endInput.value = today;
+    }
+    if (startInput) startInput.focus();
+  } else {
+    if (customDiv) customDiv.style.display = 'none';
+    selectEl.form.submit();
+  }
+}
+function toggleCustomDates(val) {
+  const customDiv = document.getElementById('custom-dates');
+  if (customDiv) customDiv.style.display = (val === 'custom') ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

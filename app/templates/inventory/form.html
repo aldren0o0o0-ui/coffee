@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit Material — ' ~ item.name if item else 'Add Raw Material' }} — Coffee Shop SME{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem;">
+      {{ 'Edit ' ~ item.name if item else 'Add New Raw Material' }}
+    </h1>
+    <p style="color: var(--text-dim); font-size: 0.88rem; margin: 0;">Configure material identity, units, safety thresholds, and supplier assignment.</p>
+  </div>
+  <a href="{{ url_for('inventory.items') }}" class="btn btn-secondary">&larr; Back to Items</a>
+</div>
+
+<div style="max-width: 720px;">
+  <div class="card">
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 1rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+        1. Material Identity
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="name">Raw Material Name <span style="color: #ef4444;">*</span></label>
+        <input type="text" id="name" name="name" class="form-control" value="{{ item.name if item else '' }}" placeholder="e.g. Arabica Dark Roast Beans, Whole Dairy Milk" required>
+      </div>
+
+      <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="category_id">Raw Material Category</label>
+          <select id="category_id" name="category_id" class="form-control form-select">
+            <option value="">-- Uncategorized --</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}" {% if item and item.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="sku">SKU Code <small style="color: var(--text-dim);">(auto-generated if empty)</small></label>
+          <input type="text" id="sku" name="sku" class="form-control" value="{{ item.sku if item else '' }}" placeholder="e.g. RAW-COF-001">
+        </div>
+      </div>
+
+      <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="unit_of_measure_id">Unit of Measure <span style="color: #ef4444;">*</span></label>
+          <select id="unit_of_measure_id" name="unit_of_measure_id" class="form-control form-select" required>
+            {% for u in uoms %}
+              <option value="{{ u.id }}" {% if item and item.unit_of_measure_id == u.id %}selected{% elif not item and u.code == 'G' %}selected{% endif %}>
+                {{ u.name }} ({{ u.code }}) — {{ u.category }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="supplier_id">Primary Supplier</label>
+          <select id="supplier_id" name="supplier_id" class="form-control form-select">
+            <option value="">-- No Supplier Assigned --</option>
+            {% for s in suppliers %}
+              <option value="{{ s.id }}" {% if item and item.supplier_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="description">Material Notes & Storage Instructions</label>
+        <textarea id="description" name="description" class="form-control" rows="2" placeholder="e.g. Keep in sealed container at room temperature...">{{ item.description if item else '' }}</textarea>
+      </div>
+
+      <div style="font-weight: 600; font-size: 1.05rem; margin: 1.5rem 0 1rem 0; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+        2. Stock Safety Thresholds & Unit Costs
+      </div>
+
+      <div class="form-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+        {% if not item %}
+          <div class="form-group">
+            <label class="form-label" for="current_stock">Initial Stock Quantity</label>
+            <input type="number" step="0.0001" min="0" id="current_stock" name="current_stock" class="form-control" value="0.0000">
+            <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Initial ledger movement created</div>
+          </div>
+        {% endif %}
+
+        <div class="form-group">
+          <label class="form-label" for="reorder_level">Reorder Level Threshold <span style="color: #ef4444;">*</span></label>
+          <input type="number" step="0.0001" min="0" id="reorder_level" name="reorder_level" class="form-control" value="{{ item.reorder_level if item else '10.0000' }}" required>
+          <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Triggers low-stock alert</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="minimum_stock">Safety Buffer Min Stock <span style="color: #ef4444;">*</span></label>
+          <input type="number" step="0.0001" min="0" id="minimum_stock" name="minimum_stock" class="form-control" value="{{ item.minimum_stock_level if item else '5.0000' }}" required>
+          <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Emergency reserve minimum</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cost_per_unit">Cost Per Unit (₱)</label>
+          <input type="number" step="0.0001" min="0" id="cost_per_unit" name="cost_per_unit" class="form-control" value="{{ item.cost_per_unit if item else '0.0000' }}">
+          <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Valuation price per base unit</div>
+        </div>
+      </div>
+
+      {% if item %}
+        <div class="form-group" style="margin-top: 1rem;">
+          <label class="form-check" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" name="is_active" value="1" {% if item.is_active %}checked{% endif %}>
+            <span><strong>Active Material</strong> (Uncheck to archive item)</span>
+          </label>
+        </div>
+      {% endif %}
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <button type="submit" class="btn btn-primary">
+          {{ 'Save Changes' if item else 'Create Raw Material' }}
+        </button>
+        <a href="{{ url_for('inventory.items') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

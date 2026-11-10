@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}POS Register Terminal{% endblock %}
+
+{% block content %}
+<input type="hidden" id="pos-tax-rate" value="{{ tax_rate }}">
+
+<!-- Top Action Bar for POS -->
+<div
+  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+  <div>
+    <h1 style="margin-bottom: 0.2rem; font-size: 1.5rem;">POS Counter Terminal</h1>
+    <span style="font-size: 0.85rem; color: var(--text-muted);">
+      Cashier: <strong>{{ current_user.full_name }}</strong>
+    </span>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 0.75rem;">
+    {% if active_shift %}
+    <div
+      style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.4rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
+      <span style="color: var(--text-muted);">Opening Float:</span>
+      <strong style="color: var(--accent);">{{ format_currency(active_shift.opening_cash) }}</strong> &middot;
+      <span style="color: var(--text-muted);">Sales:</span>
+      <strong style="color: var(--success);">{{ format_currency(active_shift.total_sales_amount) }}</strong>
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="openModal('close-shift-modal')">Close Shift</button>
+    {% else %}
+    <div
+      style="background: var(--warning-bg); border: 1px solid var(--warning); padding: 0.4rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--warning);">
+      Register Shift is Closed
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" onclick="openModal('open-shift-modal')">Open Shift</button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Category Filter Pills -->
+<div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.75rem; margin-bottom: 1rem;">
+  <button class="btn btn-secondary btn-sm pos-cat-pill active" onclick="filterCategory('all', this)"
+    style="border-radius: var(--radius-full);">
+    All Items
+  </button>
+  {% for cat in categories %}
+  <button class="btn btn-secondary btn-sm pos-cat-pill" onclick="filterCategory('{{ cat.id }}', this)"
+    style="border-radius: var(--radius-full);">
+    {{ cat.name }}
+  </button>
+  {% endfor %}
+</div>
+
+<!-- Main POS Layout: Grid of items + Order Cart -->
+<!-- Embedded catalog data for dynamic POS client -->
+<script id="pos-products-data" type="application/json">
+{{ products_json | tojson }}
+</script>
+<script id="pos-options-data" type="application/json">
+{{ option_groups_json | tojson }}
+</script>
+
+<div style="display: grid; grid-template-columns: 1fr 380px; gap: 1.5rem; align-items: start;">
+
+  <!-- Left Side: Product Grid -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem;">
+    {% for p in products %}
+    <div class="pos-product-card" data-category="{{ p.category_id }}" onclick="handleProductClick('{{ p.id }}')"
+      style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.15rem; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; min-height: 120px; transition: all 0.15s ease; user-select: none;">
+      <div>
+        <div
+          style="font-size: 0.72rem; color: var(--accent); text-transform: uppercase; font-weight: 600; margin-bottom: 0.35rem; letter-spacing: 0.04em;">
+          {{ p.category.name }}
+        </div>
+        <div style="font-size: 1.05rem; font-weight: 600; color: var(--text-main); line-height: 1.25; margin-bottom: 0.4rem;">
+          {{ p.name }}
+        </div>
+        {% if p.has_variants %}
+        <span
+          style="font-size: 0.72rem; color: var(--accent); background: var(--primary-light); padding: 0.15rem 0.45rem; border-radius: var(--radius-sm); font-weight: 500;">
+          {{ p.variants.filter_by(is_active=True).count() }} Sizes
+        </span>
+        {% endif %}
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 0.75rem;">
+        <span style="font-size: 1.2rem; font-weight: 700; color: var(--text-main);">
+          {{ format_currency(p.base_price) }}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Right Side: Order Cart Panel -->
+  <div class="card"
+    style="position: sticky; top: 80px; padding: 1.25rem; border-color: var(--primary-border); box-shadow: var(--shadow-md);">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1rem;">
+      <h3 style="font-size: 1.15rem;">Current Order</h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="clearCart()">Clear</button>
+    </div>
+
+    <!-- Scrollable Items List -->
+    <div id="pos-cart-items" style="max-height: 320px; overflow-y: auto; margin-bottom: 1rem;">
+      <div style="text-align: center; color: var(--text-dim); padding: 3rem 1rem;">
+        <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">☕</span>
+        Cart is empty.<br>Tap any drink to add.
+      </div>
+    </div>
+
+    <!-- Totals Summary -->
+    <div
+      style="border-top: 1px solid var(--border-color); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.95rem;">
+      <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+        <span>Subtotal:</span>
+        <span id="pos-cart-subtotal" style="color: var(--text-main); font-weight: 600;">{{ currency_symbol }}0.00</span>
+      </div>
+
+      <!-- Discount Selector -->
+      <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-muted);">
+        <span>Discount:</span>
+        <div style="display: flex; gap: 0.35rem; align-items: center;">
+          <select id="pos-discount-select" class="form-control form-select"
+            style="padding: 0.2rem 0.5rem; font-size: 0.8rem; height: auto;" onchange="handleDiscountChange(this.value)">
+            <option value="none">No Discount (0%)</option>
+            <option value="senior_pwd">Senior / PWD (20%)</option>
+            <option value="promo_10">Promo (10%)</option>
+            <option value="custom">Custom ({{ currency_symbol }})</option>
+          </select>
+          <input type="number" id="pos-custom-discount-input" min="0" step="0.01"
+            style="display: none; width: 75px; padding: 0.2rem 0.4rem; font-size: 0.8rem;" class="form-control"
+            placeholder="0.00" oninput="handleCustomDiscountInput(this.value)">
+        </div>
+      </div>
+
+      <div id="pos-discount-row" style="display: none; justify-content: space-between; color: var(--danger);">
+        <span>Discount Applied:</span>
+        <span id="pos-cart-discount" style="font-weight: 600;">-{{ currency_symbol }}0.00</span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+        <span>Tax ({{ (tax_rate * 100) | round }}%):</span>
+        <span id="pos-cart-tax" style="color: var(--text-main); font-weight: 600;">{{ currency_symbol }}0.00</span>
+      </div>
+      <div
+        style="display: flex; justify-content: space-between; font-size: 1.4rem; font-weight: 700; color: var(--text-main); margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-subtle);">
+        <span>Total:</span>
+        <span id="pos-cart-total" style="color: var(--accent);">{{ currency_symbol }}0.00</span>
+      </div>
+    </div>
+
+    <!-- Checkout Action Button -->
+    <button id="pos-pay-btn" type="button" class="btn btn-primary btn-block btn-lg"
+      style="margin-top: 1.25rem; font-size: 1.15rem;" onclick="openCheckoutModal()" disabled>
+      💳 Charge & Pay
+    </button>
+  </div>
+</div>
+
+<!-- Item Customization Modal (Size / Modifiers) -->
+<div id="pos-customize-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3 id="cust-modal-title">Customize Item</h3>
+      <button type="button" onclick="closeModal('pos-customize-modal')"
+        style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cust-product-id">
+
+      <!-- Variant / Size Selection -->
+      <div id="cust-variants-section" style="margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Select Size /
+          Variant</label>
+        <div id="cust-variants-container"
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem;">
+          <!-- Injected via pos.js -->
+        </div>
+      </div>
+
+      <!-- Options / Modifiers Selection -->
+      <div id="cust-options-section" style="margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Modifiers &
+          Extras</label>
+        <div id="cust-options-container" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <!-- Injected via pos.js -->
+        </div>
+      </div>
+
+      <!-- Item Custom Notes -->
+      <div class="form-group" style="margin-bottom: 0.5rem;">
+        <label class="form-label" for="cust-item-notes">Special Instructions</label>
+        <input type="text" id="cust-item-notes" class="form-control" placeholder="e.g. Extra hot, light ice, oat foam">
+      </div>
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="font-size: 1.2rem; font-weight: 700; color: var(--accent);" id="cust-modal-price-preview">{{ currency_symbol }}0.00</div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('pos-customize-modal')">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="confirmItemCustomization()">+ Add to Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Checkout Modal -->
+<div id="checkout-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3>Complete Order Payment</h3>
+      <button type="button" onclick="closeModal('checkout-modal')"
+        style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div
+        style="background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 1rem; color: var(--text-muted);">Amount Due:</span>
+        <strong id="checkout-modal-due-amount" style="font-size: 1.5rem; color: var(--accent);">{{ currency_symbol }}0.00</strong>
+      </div>
+
+      <!-- Order Type (Dine-In vs Takeout) -->
+      <div class="form-group" style="margin-bottom: 0.85rem;">
+        <label class="form-label" style="font-weight: 600; margin-bottom: 0.35rem; display: block;">Order Type</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+          <button type="button" id="btn-type-dinein" class="btn btn-primary btn-sm" onclick="setOrderType('Dine-In')">
+            🍽️ Dine-In
+          </button>
+          <button type="button" id="btn-type-takeout" class="btn btn-secondary btn-sm" onclick="setOrderType('Takeout')">
+            🛍️ Takeout
+          </button>
+        </div>
+        <input type="hidden" id="checkout-order-type" value="Dine-In">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="checkout-customer-name">Customer Name / Table</label>
+        <input type="text" id="checkout-customer-name" class="form-control" value="Guest"
+          placeholder="e.g. Maya or Table 4">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="checkout-payment-method">Payment Method *</label>
+        <select id="checkout-payment-method" class="form-control form-select" onchange="togglePaymentMethodFields()">
+          <option value="Cash">Cash</option>
+          <option value="Card">Credit / Debit Card</option>
+          <option value="QR">Mobile QR / E-Wallet</option>
+        </select>
+      </div>
+
+      <div id="cash-tendered-section">
+        <div class="form-group">
+          <label class="form-label" for="checkout-cash-tendered">Cash Tendered ({{ currency_symbol }})</label>
+          <input type="number" step="0.01" min="0" id="checkout-cash-tendered" class="form-control" placeholder="0.00"
+            oninput="calculateChange()">
+        </div>
+
+        <!-- Quick Cash Buttons -->
+        <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setQuickCash('exact')">Exact</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setQuickCash(50)">{{ currency_symbol }}50</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setQuickCash(100)">{{ currency_symbol }}100</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setQuickCash(200)">{{ currency_symbol }}200</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setQuickCash(500)">{{ currency_symbol }}500</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setQuickCash(1000)">{{ currency_symbol }}1,000</button>
+        </div>
+
+        <!-- Change Due Display -->
+        <div id="checkout-change-container"
+          style="background: var(--success-bg, rgba(16, 185, 129, 0.1)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 600; color: var(--success, #2f8a4c);">Change to Return:</span>
+          <strong id="checkout-change-due" style="font-size: 1.3rem; color: var(--success, #2f8a4c);">{{ currency_symbol }}0.00</strong>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('checkout-modal')">Cancel</button>
+      <button type="button" id="confirm-checkout-btn" class="btn btn-primary btn-lg" onclick="processCheckout()">Confirm
+        & Print Receipt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Open Shift Modal -->
+<div id="open-shift-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Open Register Shift</h3>
+      <button type="button" onclick="closeModal('open-shift-modal')"
+        style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('pos.open_shift') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="opening_cash">Starting Cash Float ({{ currency_symbol }}) *</label>
+          <input type="number" step="0.01" min="0" id="opening_cash" name="opening_cash" class="form-control"
+            value="150.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="notes">Shift Notes</label>
+          <input type="text" id="notes" name="notes" class="form-control" placeholder="e.g. Morning Counter Shift">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('open-shift-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Open Shift</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Close Shift Modal -->
+{% if active_shift %}
+<div id="close-shift-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Close Register Shift</h3>
+      <button type="button" onclick="closeModal('close-shift-modal')"
+        style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('pos.close_shift') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="shift_id" value="{{ active_shift.id }}">
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; margin-bottom: 1rem;">
+          Opening Float: <strong>{{ format_currency(active_shift.opening_cash) }}</strong><br>
+          Accumulated Shift Sales: <strong>{{ format_currency(active_shift.total_sales_amount) }}</strong><br>
+          Orders Count: <strong>{{ active_shift.total_orders_count }}</strong>
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="closing_cash">Counted Drawer Cash ({{ currency_symbol }}) *</label>
+          <input type="number" step="0.01" min="0" id="closing_cash" name="closing_cash" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="close_notes">Closing Notes</label>
+          <textarea id="close_notes" name="notes" class="form-control"
+            placeholder="Discrepancy explanations, drawer handoff..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('close-shift-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Close Register Shift</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  window.CURRENCY_SYMBOL = '{{ currency_symbol }}';
+</script>
+<script src="{{ url_for('static', filename='js/modules/pos.js') }}"></script>
+{% endblock %}

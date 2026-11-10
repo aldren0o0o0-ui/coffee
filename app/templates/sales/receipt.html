@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Receipt #{{ sale.invoice_no }}</title>
+  <style>
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #f7f3ed;
+      color: #1a120b;
+      padding: 24px 20px;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+    }
+    .receipt-container {
+      width: 320px;
+      background: #ffffff;
+      padding: 18px;
+      border: 1px solid #e3d8cb;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(72, 48, 31, 0.10);
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .divider {
+      border-top: 1px dashed #75685e;
+      margin: 10px 0;
+    }
+    .double-divider {
+      border-top: 2px dashed #35271f;
+      margin: 10px 0;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1a120b; }
+    td { padding: 3px 0; vertical-align: top; }
+    .print-btn {
+      display: block;
+      width: 100%;
+      padding: 9px;
+      margin-bottom: 15px;
+      background: #a96f32;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .print-btn:hover {
+      background: #925c25;
+    }
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .receipt-container {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        width: 100%;
+      }
+      .print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt-container">
+    <button class="print-btn" onclick="window.print()">🖨️ Print Receipt</button>
+
+    <div class="text-center">
+      <h2 style="margin: 0; font-size: 18px;">{{ store_name }}</h2>
+      <p style="margin: 4px 0; font-size: 12px;">Craft Coffee & Fresh Pastries</p>
+      <p style="margin: 2px 0; font-size: 11px;">Receipt #: {{ sale.invoice_no }}</p>
+      <p style="margin: 2px 0; font-size: 11px;">Date: {{ format_datetime(sale.created_at) }}</p>
+      <p style="margin: 2px 0; font-size: 11px;">Cashier: {{ sale.cashier.full_name }}</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align: left;">Item</th>
+          <th style="text-align: center;">Qty</th>
+          <th style="text-align: right;">Amt</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in sale.items %}
+          <tr>
+            <td>
+              <div style="font-weight: bold;">{{ item.product_name }}</div>
+              {% if item.variant_name %}
+                <div style="font-size: 11px; color: #444;">Size: {{ item.variant_name }}</div>
+              {% endif %}
+              {% if item.options_data %}
+                {% for opt in item.options_data %}
+                  {% if opt is mapping %}
+                    <div style="font-size: 10px; color: #666;">+ {{ opt.name }}{% if opt.price_adjustment and opt.price_adjustment > 0 %} ({{ currency_symbol }}{{ "%.2f"|format(opt.price_adjustment) }}){% endif %}</div>
+                  {% else %}
+                    <div style="font-size: 10px; color: #666;">+ {{ opt }}</div>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            </td>
+            <td style="text-align: center; vertical-align: top;">x{{ item.quantity }}</td>
+            <td class="text-right" style="vertical-align: top;">{{ currency_symbol }}{{ "%.2f" | format(item.subtotal) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <table>
+      <tr>
+        <td>Subtotal:</td>
+        <td class="text-right">{{ currency_symbol }}{{ "%.2f" | format(sale.subtotal_amount) }}</td>
+      </tr>
+      <tr>
+        <td>Tax:</td>
+        <td class="text-right">{{ currency_symbol }}{{ "%.2f" | format(sale.tax_amount) }}</td>
+      </tr>
+      {% if sale.discount_amount > 0 %}
+        <tr>
+          <td>Discount:</td>
+          <td class="text-right">-{{ currency_symbol }}{{ "%.2f" | format(sale.discount_amount) }}</td>
+        </tr>
+      {% endif %}
+      <tr style="font-weight: bold; font-size: 15px;">
+        <td>TOTAL:</td>
+        <td class="text-right">{{ currency_symbol }}{{ "%.2f" | format(sale.total_amount) }}</td>
+      </tr>
+      <tr>
+        <td>Payment Method:</td>
+        <td class="text-right">{{ sale.payment_method }}</td>
+      </tr>
+      {% if sale.payment_method == 'Cash' %}
+        <tr>
+          <td>Cash Tendered:</td>
+          <td class="text-right">{{ currency_symbol }}{{ "%.2f" | format(sale.cash_tendered) }}</td>
+        </tr>
+        <tr>
+          <td>Change Returned:</td>
+          <td class="text-right">{{ currency_symbol }}{{ "%.2f" | format(sale.change_due) }}</td>
+        </tr>
+      {% endif %}
+    </table>
+
+    <div class="double-divider"></div>
+
+    <div class="text-center" style="font-size: 11px; margin-top: 10px;">
+      <p style="margin: 4px 0;">Thank you for your visit!</p>
+      <p style="margin: 4px 0;">Follow us on Instagram: @artisancoffee</p>
+    </div>
+  </div>
+</body>
+</html>

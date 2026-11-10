@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Dashboard</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">
+      {{ store_name }} &middot; {{ current_user.full_name }} ({{ current_user.role }})
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+    {% if current_user.has_permission('pos.view') %}
+    <a href="{{ url_for('pos.index') }}" class="btn btn-primary">
+      <svg viewBox="0 0 24 24">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+        <line x1="8" y1="21" x2="16" y2="21"></line>
+        <line x1="12" y1="17" x2="12" y2="21"></line>
+      </svg>
+      <span>Open Register</span>
+    </a>
+    {% endif %}
+
+    <a href="{{ url_for('employees.my_shifts') }}" class="btn btn-secondary">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span>Time Clock</span>
+    </a>
+  </div>
+</div>
+
+<!-- Stat Grid -->
+<div class="stat-grid">
+  <!-- Today's Gross Revenue -->
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Today's Sales</span>
+      <div class="stat-icon-wrapper">
+        <svg viewBox="0 0 24 24">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value">{{ format_currency(system_info.today_sales_total) }}</div>
+    <div class="stat-meta">
+      <span>{{ system_info.today_orders_count }} orders completed</span>
+    </div>
+  </div>
+
+  <!-- Average Ticket Value -->
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Average Order</span>
+      <div class="stat-icon-wrapper" style="color: var(--success);">
+        <svg viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value">{{ format_currency(system_info.avg_ticket) }}</div>
+    <div class="stat-meta">
+      <span>Avg ticket size</span>
+    </div>
+  </div>
+
+  <!-- Low Stock Alert -->
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Low Stock</span>
+      <div class="stat-icon-wrapper" style="color: {% if system_info.low_stock_count > 0 %}var(--warning){% else %}var(--success){% endif %};">
+        <svg viewBox="0 0 24 24">
+          <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+          <path d="m3.3 7 8.7 5 8.7-5"></path>
+          <path d="M12 22V12"></path>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value" style="color: {% if system_info.low_stock_count > 0 %}var(--warning){% else %}var(--text-main){% endif %};">
+      {{ system_info.low_stock_count }}
+    </div>
+    <div class="stat-meta">
+      {% if system_info.low_stock_count > 0 %}
+      <span style="color: var(--warning); font-weight: 600;">Needs reordering</span>
+      {% else %}
+      <span style="color: var(--success);">All levels healthy</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Register Shift Status -->
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Register Shift</span>
+      <div class="stat-icon-wrapper" style="color: var(--info);">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-value" style="font-size: 1.45rem;">
+      {% if system_info.active_shift %}
+      <span style="color: var(--success);">Shift Open</span>
+      {% else %}
+      <span style="color: var(--text-dim);">Closed</span>
+      {% endif %}
+    </div>
+    <div class="stat-meta">
+      {% if system_info.active_shift %}
+      <span>Cashier: {{ system_info.active_shift.user.first_name if system_info.active_shift.user else 'Staff' }}</span>
+      {% else %}
+      <span>{{ system_info.active_clocked_in_staff }} staff clocked in</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Main Dashboard Grid -->
+<div class="dashboard-main-grid">
+
+  <!-- Left Column: Modern Orders & Stock Level Visualizations -->
+  <div class="dashboard-left-col">
+
+    <!-- Orders Analytics Graph Card -->
+    <div class="card chart-card">
+      <div class="card-header chart-header-responsive">
+        <div class="chart-header-title">
+          <h3 style="margin: 0;">Orders</h3>
+          <span id="ordersActivePeriodBadge" class="badge badge-secondary" style="font-size: 0.70rem; text-transform: capitalize;">Today</span>
+        </div>
+
+        <div class="chart-header-actions">
+          <!-- Timeframe Segmented Filter Group: Today, Week, Month, Year -->
+          <div class="filter-segmented-group" id="ordersFilterGroup" role="group" aria-label="Orders Timeframe Filter">
+            <button type="button" class="filter-segmented-btn active" data-period="today">Today</button>
+            <button type="button" class="filter-segmented-btn" data-period="week">Week</button>
+            <button type="button" class="filter-segmented-btn" data-period="month">Month</button>
+            <button type="button" class="filter-segmented-btn" data-period="year">Year</button>
+          </div>
+
+          {% if current_user.has_permission('sales.view') %}
+          <a href="{{ url_for('sales.index') }}" class="btn btn-outline btn-sm orders-list-link" title="View all completed sales">
+            Orders List &rarr;
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Live KPI Summary Strip -->
+      <div class="chart-kpi-strip">
+        <div class="chart-kpi-item">
+          <span class="chart-kpi-label">Volume</span>
+          <span class="chart-kpi-val" id="chartTotalOrders">{{ system_info.orders_chart.total_orders if system_info.orders_chart else 0 }} orders</span>
+        </div>
+        <div class="chart-kpi-divider"></div>
+        <div class="chart-kpi-item">
+          <span class="chart-kpi-label">Revenue</span>
+          <span class="chart-kpi-val" id="chartTotalRevenue" style="color: var(--accent);">{{ system_info.orders_chart.formatted_revenue if system_info.orders_chart else '₱0.00' }}</span>
+        </div>
+        <div class="chart-kpi-divider"></div>
+        <div class="chart-kpi-item">
+          <span class="chart-kpi-label">Average Ticket</span>
+          <span class="chart-kpi-val" id="chartAvgTicket">{{ system_info.orders_chart.formatted_avg_ticket if system_info.orders_chart else '₱0.00' }}</span>
+        </div>
+      </div>
+
+      <!-- Orders Trend Canvas -->
+      <div class="chart-container-box">
+        <canvas id="ordersChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Stock Levels Inventory Health Card -->
+    <div class="card chart-card">
+      <div class="card-header chart-header-responsive">
+        <div class="chart-header-title">
+          <h3 style="margin: 0;">Stock Levels</h3>
+          <span class="badge {% if system_info.stock_chart.low_stock_count > 0 %}badge-warning{% else %}badge-success{% endif %}" id="stockHealthBadge">
+            {% if system_info.stock_chart.low_stock_count > 0 %}
+              {{ system_info.stock_chart.low_stock_count }} Low Stock
+            {% else %}
+              All Healthy
+            {% endif %}
+          </span>
+        </div>
+
+        {% if current_user.has_permission('inventory.view') %}
+        <a href="{{ url_for('inventory.items') }}" class="btn btn-outline btn-sm" style="white-space: nowrap;">
+          Manage Inventory &rarr;
+        </a>
+        {% endif %}
+      </div>
+
+      <!-- Inventory Health Summary Strip -->
+      <div class="chart-kpi-strip">
+        <div class="chart-kpi-item">
+          <span class="chart-kpi-label">Tracked Items</span>
+          <span class="chart-kpi-val">{{ system_info.stock_chart.total_items if system_info.stock_chart else 0 }}</span>
+        </div>
+        <div class="chart-kpi-divider"></div>
+        <div class="chart-kpi-item">
+          <span class="chart-kpi-label">Critical / Low</span>
+          <span class="chart-kpi-val" style="color: {% if system_info.stock_chart.low_stock_count > 0 %}var(--warning){% else %}var(--success){% endif %};">
+            {{ system_info.stock_chart.low_stock_count if system_info.stock_chart else 0 }}
+          </span>
+        </div>
+        <div class="chart-kpi-divider"></div>
+        <div class="chart-kpi-item">
+          <span class="chart-kpi-label">Safety Benchmark</span>
+          <span class="chart-kpi-val" style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted); padding-top: 0.15rem;">
+            100% = Reorder Level
+          </span>
+        </div>
+      </div>
+
+      <!-- Stock Health Horizontal Bar Chart Canvas -->
+      <div class="chart-container-box stock-chart-box">
+        <canvas id="stockChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right Column: Store Status & Audit Stream -->
+  <div class="dashboard-right-col">
+
+    <!-- Store Status Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 style="margin: 0;">Store Overview</h3>
+        <span class="badge badge-success">Online</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.88rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-muted);">Register Shift</span>
+          {% if system_info.active_shift %}
+          <span style="font-weight: 600; color: var(--success);">Open</span>
+          {% else %}
+          <span style="font-weight: 600; color: var(--text-dim);">Closed</span>
+          {% endif %}
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-muted);">Menu Items</span>
+          <span style="font-weight: 600; color: var(--text-main);">{{ system_info.total_products }} Active</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-muted);">Clocked-in Staff</span>
+          <span style="font-weight: 600; color: var(--text-main);">{{ system_info.active_clocked_in_staff }} on duty</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-muted);">Raw Materials</span>
+          <span style="font-weight: 600; color: var(--text-main);">{{ system_info.total_inventory_items }} tracked</span>
+        </div>
+
+        <div style="padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-muted);">Current Role</span>
+          <span class="badge badge-primary">{{ current_user.role }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security Audit Activity (Owner / Manager only) -->
+    {% if current_user.is_manager_or_above and system_info.recent_logs %}
+    <div class="card">
+      <div class="card-header">
+        <h3 style="margin: 0;">Recent Activity</h3>
+        <a href="{{ url_for('audit.index') }}" class="btn btn-outline btn-sm">Audit &rarr;</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+        {% for log in system_info.recent_logs[:5] %}
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; font-size: 0.82rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle);">
+          <div>
+            <div style="font-weight: 600; color: var(--text-main);">{{ log.username or 'System' }}</div>
+            <div style="font-size: 0.74rem; color: var(--text-dim);">{{ log.action }}</div>
+          </div>
+          <div style="font-size: 0.74rem; color: var(--text-dim); text-align: right; white-space: nowrap;">
+            {{ log.timestamp.strftime('%H:%M') if log.timestamp else '' }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js 4.4 Engine -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+<!-- Initial Server-Rendered Chart Data -->
+<script id="initialChartData" type="application/json">
+{
+  "orders": {{ system_info.orders_chart|tojson }},
+  "stock": {{ system_info.stock_chart|tojson }}
+}
+</script>
+
+<!-- Interactive Dashboard Graph Controller -->
+<script src="{{ url_for('static', filename='js/modules/dashboard.js') }}"></script>
+{% endblock %}

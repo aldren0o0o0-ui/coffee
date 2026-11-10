@@ -1,0 +1,10 @@
+<div class="empty-state" style="text-align: center; padding: 3.5rem 1.5rem; background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: var(--radius-md);">
+  <div style="font-size: 3rem; margin-bottom: 0.75rem; color: var(--text-dim);">{{ empty_icon | default('☕') }}</div>
+  <h3 style="font-size: 1.15rem; margin-bottom: 0.35rem; color: #fff;">{{ empty_title | default('No records found') }}</h3>
+  <p style="font-size: 0.9rem; color: var(--text-muted); max-width: 400px; margin: 0 auto 1.25rem;">
+    {{ empty_message | default('There are currently no items to display in this view.') }}
+  </p>
+  {% if empty_action_url %}
+    <a href="{{ empty_action_url }}" class="btn btn-primary btn-sm">{{ empty_action_label | default('Add New') }}</a>
+  {% endif %}
+</div>

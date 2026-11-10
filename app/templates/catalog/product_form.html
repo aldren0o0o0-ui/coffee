@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit Product — ' ~ product.name if product else 'Create New Product' }} — Coffee Shop SME{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem;">
+      {{ 'Edit ' ~ product.name if product else 'Create New Menu Product' }}
+    </h1>
+    <p style="color: var(--text-dim); font-size: 0.88rem; margin: 0;">Configure product identity, pricing, availability, and optional drink size/temperature variants.</p>
+  </div>
+  <a href="{{ url_for('catalog.index') }}" class="btn btn-secondary">&larr; Back to Catalog</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+  <!-- Main Form Card -->
+  <div class="card">
+    <form method="POST" id="productForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 1rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+        1. Basic Information
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="name">Product Name <span style="color: #ef4444;">*</span></label>
+        <input type="text" id="name" name="name" class="form-control" value="{{ product.name if product else '' }}" placeholder="e.g. Spanish Latte, Iced Matcha, Butter Croissant" required>
+      </div>
+
+      <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="category_id">Category <span style="color: #ef4444;">*</span></label>
+          <select id="category_id" name="category_id" class="form-control form-select" required>
+            <option value="">Select Category...</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="sku">SKU Code <small style="color: var(--text-dim);">(auto-generated if empty)</small></label>
+          <input type="text" id="sku" name="sku" class="form-control" value="{{ product.sku if product else '' }}" placeholder="e.g. COF-LAT-001">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="description">Menu Description & Tasting Notes</label>
+        <textarea id="description" name="description" class="form-control" rows="3" placeholder="Describe the drink, beans, flavor notes, allergens...">{{ product.description if product else '' }}</textarea>
+      </div>
+
+      <div style="font-weight: 600; font-size: 1.05rem; margin: 1.5rem 0 1rem 0; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+        2. Pricing & Financials
+      </div>
+
+      <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="base_price">Retail Price (₱) <span style="color: #ef4444;">*</span></label>
+          <input type="number" step="0.01" min="0" id="base_price" name="base_price" class="form-control" value="{{ product.base_price if product else '150.00' }}" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cost_price">Unit Cost / Estimated COGS (₱)</label>
+          <input type="number" step="0.01" min="0" id="cost_price" name="cost_price" class="form-control" value="{{ product.cost_price if product else '0.00' }}">
+        </div>
+      </div>
+
+      <div style="font-weight: 600; font-size: 1.05rem; margin: 1.5rem 0 1rem 0; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+        3. Presentation & Availability
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="image_url">Product Image URL <small style="color: var(--text-dim);">(optional)</small></label>
+        <input type="text" id="image_url" name="image_url" class="form-control" value="{{ product.image_url if product and product.image_url else '' }}" placeholder="https://... or /static/images/...">
+      </div>
+
+      <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div class="form-group">
+          <label class="form-check" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" name="is_available" value="1" {% if not product or product.is_available %}checked{% endif %}>
+            <span><strong>Available to Sell</strong> (Visible on register)</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-check" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" name="is_active" value="1" {% if not product or product.is_active %}checked{% endif %}>
+            <span><strong>Active in Catalog</strong> (Uncheck to archive)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Creation Mode: Dynamic Variant Rows -->
+      {% if not product %}
+        <div style="font-weight: 600; font-size: 1.05rem; margin: 1.5rem 0 0.5rem 0; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+          <span>4. Product Variants (Optional)</span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addVariantRow()">+ Add Variant</button>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 1rem;">Add sizes or configurations (e.g. Small Hot, Large Iced). Leave blank for single-size items.</p>
+        
+        <div id="variantsContainer" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;"></div>
+      {% endif %}
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <button type="submit" class="btn btn-primary">
+          {{ 'Save Changes' if product else 'Create Product' }}
+        </button>
+        <a href="{{ url_for('catalog.index') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Sidebar: Variant Management for Existing Product -->
+  {% if product %}
+    <div class="card">
+      <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.5rem; color: var(--text);">
+        Product Variants
+      </div>
+      <p style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem;">Specific sizes, temperatures, or formats for {{ product.name }}.</p>
+
+      {% if product.variants.count() > 0 %}
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem;">
+          {% for v in product.variants.all() %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.75rem; background: var(--surface-hover); border-radius: 6px; border: 1px solid var(--border);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.88rem; color: var(--text);">{{ v.name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-dim);"><code>{{ v.sku }}</code> • ₱{{ "%.2f"|format(v.price) }}</div>
+              </div>
+              <form method="POST" action="{{ url_for('catalog.delete_variant', variant_id=v.id) }}" onsubmit="return confirm('Remove variant {{ v.name }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                <button type="submit" class="btn btn-secondary btn-sm" style="color: #ef4444; padding: 0.2rem 0.5rem; font-size: 0.75rem;">✕</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.82rem; background: var(--surface-hover); border-radius: 6px; margin-bottom: 1rem;">
+          No variants defined. Selling as single standard product.
+        </div>
+      {% endif %}
+
+      <!-- Add Variant Form -->
+      <form method="POST" action="{{ url_for('catalog.add_variant', product_id=product.id) }}" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="font-weight: 600; font-size: 0.88rem; margin-bottom: 0.75rem;">+ Add Variant</div>
+        <div class="form-group" style="margin-bottom: 0.6rem;">
+          <label class="form-label" style="font-size: 0.78rem;">Variant Name *</label>
+          <input type="text" name="name" class="form-control" placeholder="e.g. 16oz Iced, Large" required style="font-size: 0.85rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0.6rem;">
+          <label class="form-label" style="font-size: 0.78rem;">Price (₱) *</label>
+          <input type="number" step="0.01" min="0" name="price" class="form-control" value="{{ product.base_price }}" required style="font-size: 0.85rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0.6rem;">
+          <label class="form-label" style="font-size: 0.78rem;">Variant SKU (optional)</label>
+          <input type="text" name="sku" class="form-control" placeholder="e.g. {{ product.sku }}-LG" style="font-size: 0.85rem;">
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%;">Add Variant</button>
+      </form>
+    </div>
+  {% else %}
+    <div class="card" style="background: rgba(212, 151, 85, 0.05); border: 1px dashed var(--accent);">
+      <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--accent);">
+        💡 Menu Catalog Tip
+      </div>
+      <p style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.4; margin: 0;">
+        For products with multiple sizes (e.g. 12oz, 16oz) or temperatures (Hot vs Iced), you can define custom variants right here or add them after creation.
+      </p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function addVariantRow() {
+  const container = document.getElementById('variantsContainer');
+  const index = container.children.length + 1;
+  const row = document.createElement('div');
+  row.style = 'display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: center; background: var(--surface-hover); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);';
+  row.innerHTML = `
+    <input type="text" name="variant_name[]" class="form-control" placeholder="e.g. Large 16oz" required style="font-size: 0.85rem;">
+    <input type="number" step="0.01" min="0" name="variant_price[]" class="form-control" placeholder="Price ₱" value="160.00" required style="font-size: 0.85rem;">
+    <input type="text" name="variant_sku[]" class="form-control" placeholder="SKU (optional)" style="font-size: 0.85rem;">
+    <button type="button" class="btn btn-secondary btn-sm" onclick="this.parentElement.remove()" style="color: #ef4444; padding: 0.25rem 0.5rem;">✕</button>
+  `;
+  container.appendChild(row);
+}
+</script>
+{% endblock %}

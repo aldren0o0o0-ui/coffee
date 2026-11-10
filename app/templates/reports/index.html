@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Executive Financial Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Financial Reports</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">Revenue, margins, expenses, and store profitability</div>
+  </div>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <a href="{{ url_for('reports.profit_loss', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-primary">
+      P&L Statement
+    </a>
+    <a href="{{ url_for('reports.export_pnl_csv', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary">
+      Export P&L
+    </a>
+    <a href="{{ url_for('reports.export_sales_csv', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary">
+      Export Sales
+    </a>
+  </div>
+</div>
+
+<!-- Report Navigation Sub-menu -->
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+  <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-primary btn-sm">📊 Executive Overview</a>
+  <a href="{{ url_for('reports.profit_loss', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📑 P&L Statement</a>
+  <a href="{{ url_for('reports.products', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">☕ Product Sales & Margins</a>
+  <a href="{{ url_for('reports.inventory', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📦 Inventory & Valuation</a>
+  <a href="{{ url_for('reports.attendance', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">👥 Staff Labor & Hours</a>
+  <a href="{{ url_for('reports.registers', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">⚡ POS Register Audits</a>
+</div>
+
+<!-- Period Filter Selector -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('reports.index') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1.5; min-width: 160px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Time Period</label>
+      <select name="period" class="form-control" onchange="handlePeriodChange(this);">
+        <option value="today" {% if selected_period == 'today' %}selected{% endif %}>Today</option>
+        <option value="yesterday" {% if selected_period == 'yesterday' %}selected{% endif %}>Yesterday</option>
+        <option value="this_week" {% if selected_period == 'this_week' %}selected{% endif %}>This Week</option>
+        <option value="last_week" {% if selected_period == 'last_week' %}selected{% endif %}>Last Week</option>
+        <option value="this_month" {% if selected_period == 'this_month' %}selected{% endif %}>This Month</option>
+        <option value="last_month" {% if selected_period == 'last_month' %}selected{% endif %}>Last Month</option>
+        <option value="this_quarter" {% if selected_period == 'this_quarter' %}selected{% endif %}>This Quarter</option>
+        <option value="this_year" {% if selected_period == 'this_year' %}selected{% endif %}>This Year</option>
+        <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Custom Date Range</option>
+      </select>
+    </div>
+
+    <div id="custom-dates" style="display: {% if selected_period == 'custom' %}flex{% else %}none{% endif %}; gap: 0.75rem; flex-wrap: wrap; flex: 2;">
+      <div style="flex: 1; min-width: 140px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">From Date</label>
+        <input type="date" name="start_date" class="form-control" value="{{ start_date or (kpis.start_date if kpis and kpis.start_date is defined else '') }}">
+      </div>
+      <div style="flex: 1; min-width: 140px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">To Date</label>
+        <input type="date" name="end_date" class="form-control" value="{{ end_date or (kpis.end_date if kpis and kpis.end_date is defined else '') }}">
+      </div>
+      <div style="align-self: flex-end;">
+        <button type="submit" class="btn btn-secondary">Apply Range</button>
+      </div>
+    </div>
+
+    <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-dim); padding-bottom: 0.5rem;">
+      Active Filter: <strong>{{ kpis.period_label if kpis and kpis.period_label is defined else (selected_period or 'Default') }}</strong>
+    </div>
+  </form>
+</div>
+
+<!-- Primary Executive KPI Grid -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <!-- Net Revenue -->
+  <div class="card stat-card" style="border-left: 4px solid var(--accent);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <span style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Net Sales Revenue</span>
+      {% if kpis and kpis.sales_growth_pct is defined and kpis.sales_growth_pct is not none %}
+        {% if kpis.sales_growth_pct >= 0 %}
+          <span class="badge badge-success" style="font-size: 0.7rem;">+{{ kpis.sales_growth_pct }}%</span>
+        {% else %}
+          <span class="badge badge-danger" style="font-size: 0.7rem;">{{ kpis.sales_growth_pct }}%</span>
+        {% endif %}
+      {% else %}
+        <span class="badge badge-secondary" style="font-size: 0.7rem;">0.0%</span>
+      {% endif %}
+    </div>
+    <div style="font-size: 1.9rem; font-weight: 700; color: #fff; margin-top: 0.35rem;">
+      {{ format_currency(kpis.net_sales if kpis and kpis.net_sales is defined else 0) }}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+      Gross: {{ format_currency(kpis.gross_sales if kpis and kpis.gross_sales is defined else 0) }} (Refunds: -{{ format_currency(kpis.refunds if kpis and kpis.refunds is defined else 0) }})
+    </div>
+  </div>
+
+  <!-- Gross Margin -->
+  <div class="card stat-card" style="border-left: 4px solid #3b82f6;">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Gross Profit & Margin</div>
+    <div style="font-size: 1.9rem; font-weight: 700; color: #3b82f6; margin-top: 0.35rem;">
+      {{ format_currency(kpis.gross_profit if kpis and kpis.gross_profit is defined else 0) }}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+      Gross Margin: <strong>{{ kpis.gross_margin_pct if kpis and kpis.gross_margin_pct is defined and kpis.gross_margin_pct is not none else 0.0 }}%</strong> (COGS: {{ format_currency(kpis.cogs if kpis and kpis.cogs is defined else 0) }})
+    </div>
+  </div>
+
+  <!-- Operating Overhead -->
+  <div class="card stat-card" style="border-left: 4px solid #f59e0b;">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Total Operating Costs</div>
+    <div style="font-size: 1.9rem; font-weight: 700; color: #f59e0b; margin-top: 0.35rem;">
+      {{ format_currency(kpis.total_operating_costs if kpis and kpis.total_operating_costs is defined else 0) }}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+      Overhead: {{ format_currency(kpis.operating_expenses if kpis and kpis.operating_expenses is defined else 0) }} &bull; Labor: {{ format_currency(kpis.labor_cost if kpis and kpis.labor_cost is defined else 0) }}
+    </div>
+  </div>
+
+  <!-- Net Operating Profit -->
+  {% set is_profitable = (kpis and kpis.net_operating_profit is defined and kpis.net_operating_profit is not none and kpis.net_operating_profit >= 0) %}
+  <div class="card stat-card" style="border-left: 4px solid {% if is_profitable %}#10b981{% else %}#ef4444{% endif %};">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Net Operating Profit (EBITDA)</div>
+    <div style="font-size: 1.9rem; font-weight: 700; color: {% if is_profitable %}#10b981{% else %}#ef4444{% endif %}; margin-top: 0.35rem;">
+      {{ format_currency(kpis.net_operating_profit if kpis and kpis.net_operating_profit is defined else 0) }}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+      Net Profit Margin: <strong>{{ kpis.net_margin_pct if kpis and kpis.net_margin_pct is defined and kpis.net_margin_pct is not none else 0.0 }}%</strong>
+    </div>
+  </div>
+
+  <!-- Orders & AOV -->
+  <div class="card stat-card" style="border-left: 4px solid #8b5cf6;">
+    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Orders & Average Ticket</div>
+    <div style="font-size: 1.9rem; font-weight: 700; color: #8b5cf6; margin-top: 0.35rem;">
+      {{ kpis.order_count if kpis and kpis.order_count is defined else 0 }} Orders
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+      Average Order Value (AOV): <strong>{{ format_currency(kpis.aov if kpis and kpis.aov is defined else 0) }}</strong>
+    </div>
+  </div>
+</div>
+
+<!-- Secondary Analytics: Payment Methods & Category Revenue Breakdown -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+  <!-- Payment Methods Breakdown -->
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>Payment Channels Breakdown</h3>
+      <span style="font-size: 0.8rem; color: var(--text-dim);">Total: {{ format_currency(payments.total_amount if payments and payments.total_amount is defined else 0) }}</span>
+    </div>
+
+    {% if payments and payments.methods %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Orders</th>
+              <th>Total Volume</th>
+              <th style="width: 35%;">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in payments.methods %}
+              <tr>
+                <td><strong>{{ m.method or 'Other' }}</strong></td>
+                <td>{{ m.transactions if m.transactions is defined else 0 }}</td>
+                <td style="font-weight: 700; color: #fff;">{{ format_currency(m.amount if m.amount is defined else 0) }}</td>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="flex: 1; height: 8px; background: var(--bg-subtle); border-radius: 4px; overflow: hidden;">
+                      <div style="width: {{ m.share_pct or 0 }}%; height: 100%; background: var(--accent);"></div>
+                    </div>
+                    <span style="font-size: 0.78rem; font-weight: 600;">{{ m.share_pct or 0.0 }}%</span>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
+        <p style="margin: 0;">No sales transactions recorded in this period.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Category Sales Breakdown -->
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>Category Revenue Mix</h3>
+      <span style="font-size: 0.8rem; color: var(--text-dim);">Total: {{ format_currency(categories.total_revenue if categories and categories.total_revenue is defined else 0) }}</span>
+    </div>
+
+    {% if categories and categories.categories %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Items Sold</th>
+              <th>Gross Revenue</th>
+              <th style="width: 35%;">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in categories.categories %}
+              <tr>
+                <td><strong>{{ c.name or 'Uncategorized' }}</strong></td>
+                <td>{{ c.units_sold if c.units_sold is defined else 0 }}</td>
+                <td style="font-weight: 700; color: #fff;">{{ format_currency(c.revenue if c.revenue is defined else 0) }}</td>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="flex: 1; height: 8px; background: var(--bg-subtle); border-radius: 4px; overflow: hidden;">
+                      <div style="width: {{ c.revenue_share or 0 }}%; height: 100%; background: #3b82f6;"></div>
+                    </div>
+                    <span style="font-size: 0.78rem; font-weight: 600;">{{ c.revenue_share or 0.0 }}%</span>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
+        <p style="margin: 0;">No category sales data for this period.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function handlePeriodChange(selectEl) {
+  const customDiv = document.getElementById('custom-dates');
+  if (selectEl.value === 'custom') {
+    if (customDiv) customDiv.style.display = 'flex';
+    const startInput = document.querySelector('input[name="start_date"]');
+    if (startInput && !startInput.value) {
+      const today = new Date().toISOString().split('T')[0];
+      startInput.value = today;
+      const endInput = document.querySelector('input[name="end_date"]');
+      if (endInput && !endInput.value) endInput.value = today;
+    }
+    if (startInput) startInput.focus();
+  } else {
+    if (customDiv) customDiv.style.display = 'none';
+    selectEl.form.submit();
+  }
+}
+function toggleCustomDates(val) {
+  const customDiv = document.getElementById('custom-dates');
+  if (customDiv) customDiv.style.display = (val === 'custom') ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

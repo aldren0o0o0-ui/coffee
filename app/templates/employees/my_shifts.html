@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}My Shifts & Time Clock{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>My Shifts & Time Clock</h1>
+    <p>Welcome back, <strong>{{ current_user.full_name }}</strong> ({{ profile.position }} &bull; {{ profile.employee_code }})</p>
+  </div>
+  <div>
+    <span class="badge badge-primary" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+      Hourly Rate: {{ format_currency(profile.hourly_rate) }} / hr
+    </span>
+  </div>
+</div>
+
+<!-- Time Clock Terminal Widget -->
+<div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, var(--bg-card) 0%, rgba(217, 119, 6, 0.08) 100%); border: 1px solid var(--accent-border, rgba(217, 119, 6, 0.3)); border-radius: 12px; padding: 1.75rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <span style="font-size: 1.5rem;">⏱️</span>
+        <h2 style="margin: 0; font-size: 1.35rem;">Time Clock Terminal</h2>
+        {% if active_clock %}
+          {% if active_clock.is_on_break %}
+            <span class="badge badge-warning" style="animation: pulse 2s infinite;">⏸ On Break</span>
+          {% else %}
+            <span class="badge badge-success" style="animation: pulse 2s infinite;">🟢 Active Shift</span>
+          {% endif %}
+        {% else %}
+          <span class="badge badge-secondary">Off Duty</span>
+        {% endif %}
+      </div>
+
+      {% if active_clock %}
+        <p style="color: var(--text-main); margin: 0; font-size: 0.95rem;">
+          Clocked in at <strong>{{ format_datetime(active_clock.clock_in, "%I:%M %p") }}</strong> today ({{ active_clock.attendance_date }}).
+        </p>
+        {% if active_clock.is_on_break %}
+          <p style="color: #f59e0b; margin: 0.25rem 0 0 0; font-size: 0.88rem;">
+            Break began at {{ format_datetime(active_clock.break_start_at, "%I:%M %p") }}.
+          </p>
+        {% endif %}
+      {% else %}
+        <p style="color: var(--text-muted); margin: 0; font-size: 0.95rem;">
+          You are currently not clocked in. Press <strong>Clock In</strong> when beginning your shift.
+        </p>
+      {% endif %}
+    </div>
+
+    <!-- Clock Control Action Buttons -->
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+      {% if active_clock %}
+        {% if active_clock.is_on_break %}
+          <form method="POST" action="{{ url_for('employees.end_break') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-warning btn-lg" style="box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);">
+              ▶ End Break
+            </button>
+          </form>
+        {% else %}
+          <form method="POST" action="{{ url_for('employees.start_break') }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary btn-lg">
+              ⏸ Start Break
+            </button>
+          </form>
+
+          <form method="POST" action="{{ url_for('employees.clock_out') }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-lg" style="box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
+              ⏹ Clock Out
+            </button>
+          </form>
+        {% endif %}
+      {% else %}
+        <form method="POST" action="{{ url_for('employees.clock_in') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-primary btn-lg" style="box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3); font-weight: 600; padding: 0.75rem 1.5rem;">
+            ▶ Clock In Now
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+  <!-- Today's Scheduled Shift -->
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>Today's Planned Shift</h3>
+      <span style="font-size: 0.8rem; color: var(--text-dim);">{{ today_shifts|length }} Shift(s)</span>
+    </div>
+
+    {% if today_shifts %}
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for s in today_shifts %}
+          <div style="background: var(--bg-subtle); border-radius: 8px; padding: 1rem; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-weight: 700; font-size: 1.1rem; color: #fff;">{{ s.formatted_time_range }}</span>
+              <span class="badge {% if s.status == 'COMPLETED' %}badge-success{% elif s.status == 'CANCELLED' %}badge-danger{% else %}badge-primary{% endif %}">
+                {{ s.status }}
+              </span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">
+              Duration: <strong>{{ s.scheduled_hours }} hrs</strong>
+              {% if s.break_start and s.break_end %}
+                &bull; Scheduled Break: {{ s.break_start.strftime('%I:%M %p') }} - {{ s.break_end.strftime('%I:%M %p') }}
+              {% endif %}
+            </div>
+            {% if s.notes %}
+              <div style="font-size: 0.82rem; color: var(--text-dim); margin-top: 0.4rem; font-style: italic;">
+                Note: {{ s.notes }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🏖️</div>
+        <p style="margin: 0;">No shift scheduled for you today. Enjoy your day off!</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Weekly Summary KPI Card -->
+  <div class="card">
+    <div class="card-header">
+      <h3>This Week's Activity</h3>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 0.5rem 0;">
+      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: 8px; text-align: center;">
+        <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Hours Logged</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent); margin-top: 0.25rem;">
+          {{ total_hours_this_week }} hrs
+        </div>
+      </div>
+      <div style="background: var(--bg-subtle); padding: 1rem; border-radius: 8px; text-align: center;">
+        <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Estimated Earnings</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: #10b981; margin-top: 0.25rem;">
+          {{ format_currency(est_weekly_earnings) }}
+        </div>
+      </div>
+    </div>
+    <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.75rem; text-align: center;">
+      * Gross estimate based on logged clock hours & wage rate.
+    </div>
+  </div>
+</div>
+
+<!-- Upcoming 7-Day Schedule -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <h3>Upcoming 7-Day Work Schedule</h3>
+  </div>
+
+  {% if upcoming_schedules %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Day</th>
+            <th>Shift Hours</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in upcoming_schedules %}
+            <tr>
+              <td><strong>{{ s.work_date.strftime('%b %d, %Y') }}</strong></td>
+              <td style="color: var(--text-muted);">{{ s.work_date.strftime('%A') }}</td>
+              <td style="font-weight: 600; color: #fff;">{{ s.formatted_time_range }}</td>
+              <td>{{ s.scheduled_hours }} hrs</td>
+              <td>
+                <span class="badge {% if s.status == 'SCHEDULED' %}badge-primary{% elif s.status == 'COMPLETED' %}badge-success{% else %}badge-secondary{% endif %}">
+                  {{ s.status }}
+                </span>
+              </td>
+              <td style="font-size: 0.85rem; color: var(--text-dim);">{{ s.notes or '-' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
+      <p style="margin: 0;">No upcoming scheduled shifts found in the next 7 days.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Recent Personal Attendance History -->
+<div class="card">
+  <div class="card-header">
+    <h3>Recent Timesheet History</h3>
+  </div>
+
+  {% if recent_attendances %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Clock In</th>
+            <th>Clock Out</th>
+            <th>Total Hours</th>
+            <th>Status</th>
+            <th>Notes / Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in recent_attendances %}
+            <tr>
+              <td>{{ a.attendance_date.strftime('%b %d, %Y') if a.attendance_date else a.clock_in.strftime('%b %d, %Y') }}</td>
+              <td>{{ format_datetime(a.clock_in, '%I:%M %p') }}</td>
+              <td>
+                {% if a.clock_out %}
+                  {{ format_datetime(a.clock_out, '%I:%M %p') }}
+                {% else %}
+                  <span class="badge badge-success">Active</span>
+                {% endif %}
+              </td>
+              <td>
+                <strong style="color: var(--accent);">{{ a.total_hours }} hrs</strong>
+              </td>
+              <td>
+                {% if a.status == 'PRESENT' %}
+                  <span class="badge badge-success">On Time</span>
+                {% elif a.status == 'LATE' %}
+                  <span class="badge badge-warning">Late ({{ a.late_minutes }}m)</span>
+                {% elif a.status == 'CORRECTED' %}
+                  <span class="badge badge-primary">Corrected</span>
+                {% elif a.status == 'ABSENT' %}
+                  <span class="badge badge-danger">Absent</span>
+                {% else %}
+                  <span class="badge badge-secondary">{{ a.status }}</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 0.82rem; color: var(--text-dim);">
+                {% if a.correction_reason %}
+                  <span style="color: #60a5fa;">Correction: {{ a.correction_reason }}</span>
+                {% else %}
+                  {{ a.notes or '-' }}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
+      <p style="margin: 0;">No timesheet history found for the last 14 days.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

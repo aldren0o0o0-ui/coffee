@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase Orders & Stock In — Coffee Shop SME{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem;">Purchase Orders & Stock Receiving</h1>
+    <p style="color: var(--text-dim); font-size: 0.88rem; margin: 0;">Record vendor purchases, verify received shipments, and atomically increment on-hand inventory balances.</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; align-items: center;">
+    <a href="{{ url_for('inventory.index') }}" class="btn btn-secondary">&larr; Back to Inventory</a>
+    <button type="button" class="btn btn-primary" onclick="openPurchaseModal()">
+      <span>+</span> Create Purchase Order
+    </button>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('inventory.purchases') }}" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+    <div style="width: 200px;">
+      <select name="status" class="form-control form-select" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        <option value="DRAFT" {% if selected_status == 'DRAFT' %}selected{% endif %}>Draft (Pending Receiving)</option>
+        <option value="RECEIVED" {% if selected_status == 'RECEIVED' %}selected{% endif %}>Received (In Stock)</option>
+        <option value="CANCELLED" {% if selected_status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+      </select>
+    </div>
+    {% if selected_status %}
+      <a href="{{ url_for('inventory.purchases') }}" class="btn btn-secondary btn-sm">Reset Filter</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Purchases Table -->
+{% if pagination.items %}
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+      <table class="table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th>PO Number</th>
+            <th>Supplier</th>
+            <th>Order Date</th>
+            <th>Items Ordered</th>
+            <th>Total Cost</th>
+            <th>Status</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pagination.items %}
+            <tr>
+              <td><strong style="color: var(--text);">{{ p.reference_number }}</strong></td>
+              <td>{{ p.supplier.name if p.supplier else 'Unknown Supplier' }}</td>
+              <td style="color: var(--text-dim); font-size: 0.85rem;">{{ p.purchase_date.strftime('%Y-%m-%d') }}</td>
+              <td>
+                <span class="badge badge-secondary">{{ p.items.count() }} line items</span>
+              </td>
+              <td style="font-weight: 700; color: var(--accent);">₱{{ "%.2f"|format(p.total_cost) }}</td>
+              <td>
+                {% if p.status == 'RECEIVED' %}
+                  <span class="badge badge-success">Received ✓</span>
+                {% elif p.status == 'DRAFT' %}
+                  <span class="badge badge-warning">Draft (Pending)</span>
+                {% else %}
+                  <span class="badge badge-secondary">Cancelled</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <div class="table-actions" style="justify-content: flex-end; display: inline-flex; gap: 0.35rem;">
+                  {% if p.status == 'DRAFT' %}
+                    <form method="POST" action="{{ url_for('inventory.receive_purchase', purchase_id=p.id) }}" style="display: inline;" onsubmit="return confirm('Confirm receipt of shipment? This will atomically increment stock levels.');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn btn-primary btn-sm" title="Receive shipment into stock">
+                        Receive Stock
+                      </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('inventory.cancel_purchase', purchase_id=p.id) }}" style="display: inline;" onsubmit="return confirm('Cancel this purchase order?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn btn-secondary btn-sm" style="color: #ef4444;" title="Cancel order">
+                        Cancel
+                      </button>
+                    </form>
+                  {% else %}
+                    <span style="color: var(--text-dim); font-size: 0.75rem;">Completed</span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding: 1rem;">
+      {% include "components/pagination.html" %}
+    </div>
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-dim);">
+    <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🧾</div>
+    <h3>No Purchase Orders Found</h3>
+    <p style="font-size: 0.88rem; max-width: 400px; margin: 0.5rem auto 1.5rem auto;">
+      Create purchase orders to record ingredient deliveries and receive them directly into on-hand stock.
+    </p>
+    <button type="button" class="btn btn-primary" onclick="openPurchaseModal()">+ Create Purchase Order</button>
+  </div>
+{% endif %}
+
+<!-- Create Purchase Modal -->
+<div id="purchaseModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
+  <div class="card" style="max-width: 650px; width: 100%; max-height: 90vh; overflow-y: auto; border: 1px solid var(--accent); box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600;">Create Purchase Order (DRAFT)</h3>
+      <button type="button" onclick="closePurchaseModal()" style="background: none; border: none; color: var(--text-dim); font-size: 1.2rem; cursor: pointer;">✕</button>
+    </div>
+
+    <form method="POST" action="{{ url_for('inventory.purchases') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="supplier_id">Supplier Vendor <span style="color: #ef4444;">*</span></label>
+          <select id="supplier_id" name="supplier_id" class="form-control form-select" required>
+            <option value="">Select Supplier...</option>
+            {% for s in suppliers %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reference_number">PO / Invoice # <small style="color: var(--text-dim);">(auto if blank)</small></label>
+          <input type="text" id="reference_number" name="reference_number" class="form-control" placeholder="e.g. PO-2026-001">
+        </div>
+      </div>
+
+      <div style="font-weight: 600; font-size: 0.95rem; margin: 1rem 0 0.5rem 0; display: flex; justify-content: space-between; align-items: center;">
+        <span>Line Items <span style="color: #ef4444;">*</span></span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addPurchaseLineItem()">+ Add Item</button>
+      </div>
+
+      <div id="poItemsContainer" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+        <div class="po-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: center; background: var(--surface-hover); padding: 0.5rem; border-radius: 6px;">
+          <select name="item_id[]" class="form-control form-select" required style="font-size: 0.85rem;">
+            <option value="">Select Item...</option>
+            {% for itm in all_items %}
+              <option value="{{ itm.id }}" data-cost="{{ itm.cost_per_unit }}">{{ itm.name }} ({{ itm.unit }})</option>
+            {% endfor %}
+          </select>
+          <input type="number" step="0.0001" min="0.0001" name="quantity[]" class="form-control" placeholder="Qty" required style="font-size: 0.85rem;">
+          <input type="number" step="0.01" min="0" name="unit_cost[]" class="form-control" placeholder="Cost ₱" required style="font-size: 0.85rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="this.parentElement.remove()" style="color: #ef4444; padding: 0.25rem 0.5rem;">✕</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="notes">Order Notes</label>
+        <textarea id="notes" name="notes" class="form-control" rows="2" placeholder="Delivery notes, terms, payment reference..."></textarea>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">Save PO Draft</button>
+        <button type="button" class="btn btn-secondary" onclick="closePurchaseModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openPurchaseModal() {
+  document.getElementById('purchaseModal').style.display = 'flex';
+}
+function closePurchaseModal() {
+  document.getElementById('purchaseModal').style.display = 'none';
+}
+function addPurchaseLineItem() {
+  const container = document.getElementById('poItemsContainer');
+  const firstRow = container.querySelector('.po-row');
+  if (firstRow) {
+    const clone = firstRow.cloneNode(true);
+    clone.querySelectorAll('input').forEach(input => input.value = '');
+    container.appendChild(clone);
+  }
+}
+</script>
+{% endblock %}

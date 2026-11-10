@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Profit & Loss (P&L) Statement{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Store Profit & Loss (P&L) Statement</h1>
+    <p>Comprehensive operational income statement for <strong>{{ store_name }}</strong></p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <a href="{{ url_for('reports.export_pnl_csv', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-primary">
+      📥 Export P&L CSV
+    </a>
+    <button type="button" class="btn btn-secondary" onclick="window.print();">
+      🖨️ Print Statement
+    </button>
+    <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary">
+      &larr; Executive Overview
+    </a>
+  </div>
+</div>
+
+<!-- Report Navigation Sub-menu -->
+<div class="reports-nav" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+  <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📊 Executive Overview</a>
+  <a href="{{ url_for('reports.profit_loss', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-primary btn-sm">📑 P&L Statement</a>
+  <a href="{{ url_for('reports.products', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">☕ Product Sales & Margins</a>
+  <a href="{{ url_for('reports.inventory', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📦 Inventory & Valuation</a>
+  <a href="{{ url_for('reports.attendance', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">👥 Staff Labor & Hours</a>
+  <a href="{{ url_for('reports.registers', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">⚡ POS Register Audits</a>
+</div>
+
+<!-- Period Filter Selector -->
+<div class="card period-filter-card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('reports.profit_loss') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1.5; min-width: 160px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Time Period</label>
+      <select name="period" class="form-control" onchange="handlePeriodChange(this);">
+        <option value="today" {% if selected_period == 'today' %}selected{% endif %}>Today</option>
+        <option value="yesterday" {% if selected_period == 'yesterday' %}selected{% endif %}>Yesterday</option>
+        <option value="this_week" {% if selected_period == 'this_week' %}selected{% endif %}>This Week</option>
+        <option value="last_week" {% if selected_period == 'last_week' %}selected{% endif %}>Last Week</option>
+        <option value="this_month" {% if selected_period == 'this_month' %}selected{% endif %}>This Month</option>
+        <option value="last_month" {% if selected_period == 'last_month' %}selected{% endif %}>Last Month</option>
+        <option value="this_quarter" {% if selected_period == 'this_quarter' %}selected{% endif %}>This Quarter</option>
+        <option value="this_year" {% if selected_period == 'this_year' %}selected{% endif %}>This Year</option>
+        <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Custom Date Range</option>
+      </select>
+    </div>
+
+    <div id="custom-dates" style="display: {% if selected_period == 'custom' %}flex{% else %}none{% endif %}; gap: 0.75rem; flex-wrap: wrap; flex: 2;">
+      <div style="flex: 1; min-width: 140px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">From Date</label>
+        <input type="date" name="start_date" class="form-control" value="{{ start_date or pnl.start_date }}">
+      </div>
+      <div style="flex: 1; min-width: 140px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">To Date</label>
+        <input type="date" name="end_date" class="form-control" value="{{ end_date or pnl.end_date }}">
+      </div>
+      <div style="align-self: flex-end;">
+        <button type="submit" class="btn btn-secondary">Apply Range</button>
+      </div>
+    </div>
+
+    <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-dim); padding-bottom: 0.5rem;">
+      Period: <strong>{{ pnl.period_label }}</strong> &bull; Total Completed Orders: <strong>{{ pnl.orders_count }}</strong>
+    </div>
+  </form>
+</div>
+
+<!-- Formal Financial Statement Sheet -->
+<div class="card pnl-statement-card" style="max-width: 900px; margin: 0 auto 2rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); border-radius: 12px; padding: 2rem;">
+  <div style="text-align: center; border-bottom: 2px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
+    <h2 style="margin: 0 0 0.25rem 0; font-size: 1.5rem; color: #fff;">{{ store_name }}</h2>
+    <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent); letter-spacing: 0.5px; text-transform: uppercase;">
+      Statement of Operations & Profitability
+    </div>
+    <div style="font-size: 0.88rem; color: var(--text-dim); margin-top: 0.35rem;">
+      For the Period: <strong>{{ pnl.period_label }}</strong> ({{ pnl.start_date }} to {{ pnl.end_date }})
+    </div>
+  </div>
+
+  <table class="table" style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
+    <!-- 1. REVENUE SECTION -->
+    <thead>
+      <tr style="background: var(--bg-subtle);">
+        <th style="font-size: 0.95rem; font-weight: 700; color: #fff; padding: 0.75rem 1rem;">1. Operating Revenue</th>
+        <th style="text-align: right; width: 180px; font-size: 0.95rem; font-weight: 700; color: #fff;">Amount ($)</th>
+        <th style="text-align: right; width: 100px; font-size: 0.85rem; color: var(--text-dim);">% Net Rev</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding-left: 1.5rem;">Gross Sales Volume</td>
+        <td style="text-align: right; font-weight: 600;">{{ format_currency(pnl.gross_sales) }}</td>
+        <td style="text-align: right; color: var(--text-dim);">-</td>
+      </tr>
+      <tr>
+        <td style="padding-left: 2rem; color: var(--text-muted);">- Less: Customer Refunds & Returns</td>
+        <td style="text-align: right; color: #f87171;">-{{ format_currency(pnl.refunds) }}</td>
+        <td style="text-align: right; color: var(--text-dim);">-</td>
+      </tr>
+      <tr>
+        <td style="padding-left: 2rem; color: var(--text-muted);">- Less: Promotional Discounts & Offers</td>
+        <td style="text-align: right; color: #fbbf24;">-{{ format_currency(pnl.discounts) }}</td>
+        <td style="text-align: right; color: var(--text-dim);">-</td>
+      </tr>
+      <tr style="border-top: 1px solid var(--border-color); background: rgba(217, 119, 6, 0.05);">
+        <td style="padding-left: 1.5rem; font-weight: 700; color: #fff;">Net Sales Revenue</td>
+        <td style="text-align: right; font-weight: 700; color: var(--accent); font-size: 1.05rem;">
+          {{ format_currency(pnl.net_revenue) }}
+        </td>
+        <td style="text-align: right; font-weight: 600; color: var(--accent);">100.0%</td>
+      </tr>
+    </tbody>
+
+    <!-- 2. COGS SECTION -->
+    <thead>
+      <tr style="background: var(--bg-subtle);">
+        <th style="font-size: 0.95rem; font-weight: 700; color: #fff; padding: 0.75rem 1rem;">2. Cost of Goods Sold (COGS)</th>
+        <th style="text-align: right; font-size: 0.95rem; font-weight: 700; color: #fff;">Amount ($)</th>
+        <th style="text-align: right; font-size: 0.85rem; color: var(--text-dim);">% Net Rev</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding-left: 1.5rem; color: var(--text-muted);">
+          Raw Material Consumption (Coffee beans, dairy, syrups, packaging, cups)
+        </td>
+        <td style="text-align: right; color: #f87171; font-weight: 600;">
+          -{{ format_currency(pnl.cogs) }}
+        </td>
+        <td style="text-align: right; color: var(--text-dim);">
+          {% if pnl.net_revenue > 0 %}
+            {{ (pnl.cogs / pnl.net_revenue * 100)|round(1) }}%
+          {% else %}
+            0.0%
+          {% endif %}
+        </td>
+      </tr>
+      <tr style="border-top: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05);">
+        <td style="padding-left: 1.5rem; font-weight: 700; color: #fff;">Gross Operating Profit</td>
+        <td style="text-align: right; font-weight: 700; color: #3b82f6; font-size: 1.05rem;">
+          {{ format_currency(pnl.gross_profit) }}
+        </td>
+        <td style="text-align: right; font-weight: 700; color: #3b82f6;">
+          {{ pnl.gross_margin_pct }}%
+        </td>
+      </tr>
+    </tbody>
+
+    <!-- 3. OPERATING OVERHEAD & LABOR SECTION -->
+    <thead>
+      <tr style="background: var(--bg-subtle);">
+        <th style="font-size: 0.95rem; font-weight: 700; color: #fff; padding: 0.75rem 1rem;">3. Operating Expenses & Store Overhead</th>
+        <th style="text-align: right; font-size: 0.95rem; font-weight: 700; color: #fff;">Amount ($)</th>
+        <th style="text-align: right; font-size: 0.85rem; color: var(--text-dim);">% Net Rev</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cat in pnl.expense_categories %}
+        <tr>
+          <td style="padding-left: 2rem; color: var(--text-muted);">
+            {{ cat.category_name }} ({{ cat.count }} transactions)
+          </td>
+          <td style="text-align: right; color: #f87171;">-{{ format_currency(cat.amount) }}</td>
+          <td style="text-align: right; color: var(--text-dim);">
+            {% if pnl.net_revenue > 0 %}
+              {{ (cat.amount / pnl.net_revenue * 100)|round(1) }}%
+            {% else %}
+              0.0%
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+
+      <!-- Staff Labor Expenses -->
+      <tr>
+        <td style="padding-left: 2rem; color: var(--text-muted);">
+          Staff Work Shift Labor ({{ pnl.total_hours }} logged hours)
+        </td>
+        <td style="text-align: right; color: #f87171;">-{{ format_currency(pnl.labor_cost) }}</td>
+        <td style="text-align: right; color: var(--text-dim);">
+          {% if pnl.net_revenue > 0 %}
+            {{ (pnl.labor_cost / pnl.net_revenue * 100)|round(1) }}%
+          {% else %}
+            0.0%
+          {% endif %}
+        </td>
+      </tr>
+
+      <tr style="border-top: 1px solid var(--border-color); background: rgba(245, 158, 11, 0.05);">
+        <td style="padding-left: 1.5rem; font-weight: 700; color: #fff;">Total Operating Overhead</td>
+        <td style="text-align: right; font-weight: 700; color: #f59e0b; font-size: 1.05rem;">
+          -{{ format_currency(pnl.total_operating_expenses) }}
+        </td>
+        <td style="text-align: right; font-weight: 600; color: #f59e0b;">
+          {% if pnl.net_revenue > 0 %}
+            {{ (pnl.total_operating_expenses / pnl.net_revenue * 100)|round(1) }}%
+          {% else %}
+            0.0%
+          {% endif %}
+        </td>
+      </tr>
+    </tbody>
+
+    <!-- 4. NET OPERATING PROFIT -->
+    <thead>
+      <tr style="background: {% if pnl.net_operating_income >= 0 %}rgba(16, 185, 129, 0.15){% else %}rgba(239, 68, 68, 0.15){% endif %};">
+        <th style="font-size: 1.1rem; font-weight: 700; color: #fff; padding: 1rem;">
+          4. Net Operating Profit (EBITDA Proxy)
+        </th>
+        <th style="text-align: right; font-size: 1.25rem; font-weight: 700; color: {% if pnl.net_operating_income >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+          {{ format_currency(pnl.net_operating_income) }}
+        </th>
+        <th style="text-align: right; font-size: 1.1rem; font-weight: 700; color: {% if pnl.net_operating_income >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+          {{ pnl.net_margin_pct }}%
+        </th>
+      </tr>
+    </thead>
+  </table>
+
+  <!-- Statutory & Scope Accounting Disclosure -->
+  <div style="background: var(--bg-subtle); border-left: 4px solid var(--accent); padding: 1rem 1.25rem; border-radius: 6px; font-size: 0.8rem; line-height: 1.5; color: var(--text-dim);">
+    <strong>Mandatory Financial Disclosure:</strong> {{ pnl.disclosure }}
+  </div>
+</div>
+
+<style>
+@media print {
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .sidebar, .top-nav, .page-header, .reports-nav, .period-filter-card, .btn {
+    display: none !important;
+  }
+  .main-content, .content-container, main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+  }
+  .pnl-statement-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+    color: #111 !important;
+    max-width: 100% !important;
+    padding: 1rem !important;
+  }
+  .pnl-statement-card * {
+    color: #111 !important;
+    background: transparent !important;
+  }
+  .pnl-statement-card th, .pnl-statement-card td {
+    border-bottom: 1px solid #ddd !important;
+  }
+}
+</style>
+
+<script>
+function handlePeriodChange(selectEl) {
+  const customDiv = document.getElementById('custom-dates');
+  if (selectEl.value === 'custom') {
+    if (customDiv) customDiv.style.display = 'flex';
+    const startInput = document.querySelector('input[name="start_date"]');
+    if (startInput && !startInput.value) {
+      const today = new Date().toISOString().split('T')[0];
+      startInput.value = today;
+      const endInput = document.querySelector('input[name="end_date"]');
+      if (endInput && !endInput.value) endInput.value = today;
+    }
+    if (startInput) startInput.focus();
+  } else {
+    if (customDiv) customDiv.style.display = 'none';
+    selectEl.form.submit();
+  }
+}
+function toggleCustomDates(val) {
+  const customDiv = document.getElementById('custom-dates');
+  if (customDiv) customDiv.style.display = (val === 'custom') ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

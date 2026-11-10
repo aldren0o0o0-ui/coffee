@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Movement Ledger — Coffee Shop SME{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem;">Stock Movement Ledger</h1>
+    <p style="color: var(--text-dim); font-size: 0.88rem; margin: 0;">Immutable historical ledger of purchases, stock counts, adjustments, and waste records.</p>
+  </div>
+  <a href="{{ url_for('inventory.index') }}" class="btn btn-secondary">&larr; Back to Inventory</a>
+</div>
+
+<!-- Filters Bar (Section 31) -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('inventory.movements') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+    <div style="flex: 2; min-width: 200px;">
+      <select name="item_id" class="form-control form-select" onchange="this.form.submit()">
+        <option value="">All Inventory Items</option>
+        {% for itm in all_items %}
+          <option value="{{ itm.id }}" {% if selected_item_id == itm.id %}selected{% endif %}>{{ itm.name }} ({{ itm.sku }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 160px;">
+      <select name="movement_type" class="form-control form-select" onchange="this.form.submit()">
+        <option value="">All Movement Types</option>
+        <option value="purchase" {% if selected_type == 'purchase' %}selected{% endif %}>Purchase / Stock In</option>
+        <option value="adjustment_in" {% if selected_type == 'adjustment_in' %}selected{% endif %}>Adjustment In (+)</option>
+        <option value="adjustment_out" {% if selected_type == 'adjustment_out' %}selected{% endif %}>Adjustment Out (-)</option>
+        <option value="initial_stock" {% if selected_type == 'initial_stock' %}selected{% endif %}>Initial Stock</option>
+        <option value="waste" {% if selected_type == 'waste' %}selected{% endif %}>Waste / Spoilage</option>
+        <option value="correction" {% if selected_type == 'correction' %}selected{% endif %}>Compensating Correction</option>
+      </select>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-secondary">Filter Ledger</button>
+      {% if selected_item_id or selected_type %}
+        <a href="{{ url_for('inventory.movements') }}" class="btn btn-secondary">Reset</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Immutable Ledger Table (Section 31) -->
+{% if pagination.items %}
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+      <table class="table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Item</th>
+            <th>Movement Type</th>
+            <th>Quantity Delta</th>
+            <th>Unit Cost</th>
+            <th>Reason & Notes</th>
+            <th>Reference</th>
+            <th>Performed By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in pagination.items %}
+            <tr>
+              <td style="font-size: 0.8rem; color: var(--text-dim); white-space: nowrap;">
+                {{ m.created_at.strftime('%Y-%m-%d %H:%M') }}
+              </td>
+              <td>
+                <strong style="color: var(--text);">{{ m.ingredient.name if m.ingredient else 'Deleted Item' }}</strong>
+                {% if m.ingredient %}
+                  <div style="font-size: 0.72rem; color: var(--text-dim);"><code>{{ m.ingredient.sku }}</code></div>
+                {% endif %}
+              </td>
+              <td>
+                {% if m.movement_type == 'purchase' %}
+                  <span class="badge badge-success">Purchase</span>
+                {% elif m.movement_type == 'adjustment_in' %}
+                  <span class="badge badge-info">Adj In</span>
+                {% elif m.movement_type == 'adjustment_out' %}
+                  <span class="badge badge-warning">Adj Out</span>
+                {% elif m.movement_type == 'initial_stock' %}
+                  <span class="badge badge-secondary">Initial</span>
+                {% elif m.movement_type == 'waste' %}
+                  <span class="badge badge-danger">Waste</span>
+                {% elif m.movement_type == 'correction' %}
+                  <span class="badge badge-danger">Correction</span>
+                {% else %}
+                  <span class="badge badge-secondary">{{ m.movement_type }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <span style="font-weight: 700; color: {% if m.quantity > 0 %}#10b981{% else %}#ef4444{% endif %};">
+                  {{ "%+.2f"|format(m.quantity) }}
+                </span>
+                <span style="font-size: 0.75rem; color: var(--text-dim);">{{ m.ingredient.unit if m.ingredient else '' }}</span>
+              </td>
+              <td style="color: var(--text-dim); font-size: 0.82rem;">
+                ₱{{ "%.2f"|format(m.unit_cost) }}
+              </td>
+              <td>
+                <div style="font-weight: 500; font-size: 0.85rem; color: var(--text);">{{ m.reason or '-' }}</div>
+                {% if m.notes %}
+                  <div style="font-size: 0.72rem; color: var(--text-dim);">{{ m.notes }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {% if m.reference %}
+                  <code>{{ m.reference }}</code>
+                {% else %}
+                  <span style="color: var(--text-dim);">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <span style="font-size: 0.82rem; color: var(--text-dim);">
+                  {{ m.created_by.full_name if m.created_by else 'System / Seeder' }}
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding: 1rem;">
+      {% include "components/pagination.html" %}
+    </div>
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-dim);">
+    <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📋</div>
+    <h3>No Stock Movements Found</h3>
+    <p style="font-size: 0.88rem; max-width: 400px; margin: 0.5rem auto 0 auto;">
+      No audit records match the selected filter criteria.
+    </p>
+  </div>
+{% endif %}
+{% endblock %}

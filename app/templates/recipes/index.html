@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Drink Recipes & Bill of Materials — Coffee Shop SME{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Recipes & BOM</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">Drink formulations and ingredient portioning</div>
+  </div>
+  {% if current_user.has_permission('recipes.create') %}
+    <a href="{{ url_for('recipes.create') }}" class="btn btn-primary">+ Add Recipe</a>
+  {% endif %}
+</div>
+
+<!-- Metric Stat Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+  <div class="card" style="padding: 1.25rem;">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem;">Total Formulations</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--text);">{{ recipes_pagination.total }}</div>
+  </div>
+  <div class="card" style="padding: 1.25rem;">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem;">Active Recipes</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #10b981;">
+      {{ recipes_pagination.items | selectattr('is_active') | list | length }}
+    </div>
+  </div>
+  <div class="card" style="padding: 1.25rem;">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem;">Unconfigured Menu Items</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: {% if unconfigured_products %}#f59e0b{% else %}#10b981{% endif %};">
+      {{ unconfigured_products | length }}
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('recipes.index') }}" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 240px;">
+      <input type="text" name="q" class="form-control" placeholder="Search by recipe, product, or variant..." value="{{ search }}">
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; color: var(--text-dim); cursor: pointer;">
+        <input type="checkbox" name="active" value="1" {% if active_only %}checked{% endif %} onchange="this.form.submit()">
+        Active Only
+      </label>
+    </div>
+    <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+    {% if search or active_only %}
+      <a href="{{ url_for('recipes.index') }}" class="btn btn-secondary btn-sm" style="color: var(--text-dim);">Reset</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Recipes Table -->
+<div class="card" style="padding: 0; overflow: hidden; margin-bottom: 2rem;">
+  <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: center;">
+    <span>Configured Drink Formulations ({{ recipes_pagination.total }})</span>
+  </div>
+
+  {% if recipes_pagination.items %}
+    <div class="table-responsive">
+      <table class="table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th>Recipe Target</th>
+            <th>Type / Scope</th>
+            <th>Retail Price</th>
+            <th>Recipe COGS</th>
+            <th>Gross Margin</th>
+            <th>Components</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recipes_pagination.items %}
+            <tr>
+              <td>
+                <a href="{{ url_for('recipes.edit', recipe_id=r.id) }}" style="font-weight: 600; color: var(--text);">
+                  {{ r.target_name }}
+                </a>
+                {% if r.instructions %}
+                  <div style="font-size: 0.75rem; color: var(--text-dim); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ r.instructions }}
+                  </div>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.variant %}
+                  <span class="badge badge-secondary" style="font-size: 0.72rem;">Variant ({{ r.variant.name }})</span>
+                {% else %}
+                  <span class="badge badge-primary" style="font-size: 0.72rem;">Base Product</span>
+                {% endif %}
+              </td>
+              <td style="font-weight: 600; color: var(--text);">
+                {{ format_currency(r.target_price) }}
+              </td>
+              <td style="font-weight: 700; color: #ffb74d;">
+                {{ format_currency(r.total_cost_decimal) }}
+              </td>
+              <td>
+                {% if r.target_price > 0 %}
+                  {% set m = r.gross_margin_percentage %}
+                  <span class="badge {% if m >= 65 %}badge-success{% elif m >= 45 %}badge-warning{% else %}badge-danger{% endif %}">
+                    {{ m }}%
+                  </span>
+                {% else %}
+                  <span class="badge badge-secondary">N/A</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 0.85rem; color: var(--text-dim);">
+                {{ r.items | length }} items
+              </td>
+              <td>
+                {% if r.is_active %}
+                  <span class="badge badge-success">Active</span>
+                {% else %}
+                  <span class="badge badge-secondary">Inactive</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right; white-space: nowrap;">
+                {% if current_user.has_permission('recipes.edit') %}
+                  <a href="{{ url_for('recipes.edit', recipe_id=r.id) }}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem;">Edit</a>
+                  <form method="POST" action="{{ url_for('recipes.toggle', recipe_id=r.id) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem;" title="Toggle Active">
+                      {{ 'Deactivate' if r.is_active else 'Activate' }}
+                    </button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if recipes_pagination.pages > 1 %}
+      <div style="padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border);">
+        <span style="font-size: 0.85rem; color: var(--text-dim);">
+          Page {{ recipes_pagination.page }} of {{ recipes_pagination.pages }}
+        </span>
+        <div style="display: flex; gap: 0.5rem;">
+          {% if recipes_pagination.has_prev %}
+            <a href="{{ url_for('recipes.index', page=recipes_pagination.prev_num, q=search, active=1 if active_only else None) }}" class="btn btn-secondary btn-sm">&larr; Previous</a>
+          {% endif %}
+          {% if recipes_pagination.has_next %}
+            <a href="{{ url_for('recipes.index', page=recipes_pagination.next_num, q=search, active=1 if active_only else None) }}" class="btn btn-secondary btn-sm">Next &rarr;</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-dim);">
+      <div style="font-size: 2rem; margin-bottom: 0.5rem;">🧪</div>
+      No recipes found matching the criteria.
+    </div>
+  {% endif %}
+</div>
+
+<!-- Products Lacking Formulations Section -->
+{% if unconfigured_products and current_user.has_permission('recipes.create') %}
+  <div class="card" style="border-color: rgba(245, 158, 11, 0.3);">
+    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.5rem; color: #f59e0b;">
+      ⚠️ Menu Products Without a Recipe ({{ unconfigured_products | length }})
+    </div>
+    <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1rem;">
+      These products will not automatically deduct raw material inventory at POS checkout until a recipe formulation is saved.
+    </p>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      {% for p in unconfigured_products %}
+        <a href="{{ url_for('recipes.create', product_id=p.id) }}" class="btn btn-secondary btn-sm" style="border-color: rgba(245, 158, 11, 0.4);">
+          + Formulate {{ p.name }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

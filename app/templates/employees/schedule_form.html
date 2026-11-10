@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{% if schedule %}Edit Shift Schedule{% else %}Schedule New Shift{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{% if schedule %}Edit Shift Schedule #{{ schedule.id }}{% else %}Schedule New Staff Shift{% endif %}</h1>
+    <p>Assign work hours, break times, and coverage duties to cafe employees</p>
+  </div>
+  <a href="{{ url_for('employees.schedules') }}" class="btn btn-secondary">&larr; Back to Schedules</a>
+</div>
+
+<div style="max-width: 680px;">
+  <div class="card">
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-group">
+        <label class="form-label" for="employee_id">Employee *</label>
+        <select id="employee_id" name="employee_id" class="form-control" {% if schedule %}disabled{% endif %} required>
+          <option value="">Select Employee...</option>
+          {% for p in profiles %}
+            <option value="{{ p.id }}" {% if (schedule and schedule.employee_id == p.id) or (request.args.get('employee_id')|int == p.id) %}selected{% endif %}>
+              {{ p.full_name }} — {{ p.position }} ({{ p.employee_code }})
+            </option>
+          {% endfor %}
+        </select>
+        {% if schedule %}
+          <small class="form-text" style="color: var(--text-dim);">Employee assignment cannot be changed after creation. To reassign, cancel this shift and create a new one.</small>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="work_date">Work Date *</label>
+        <input type="date" id="work_date" name="work_date" class="form-control"
+               value="{{ schedule.work_date.strftime('%Y-%m-%d') if schedule else request.args.get('work_date', '') }}" required>
+      </div>
+
+      <!-- Quick Shift Presets -->
+      <div style="margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-size: 0.8rem; color: var(--text-dim);">Quick Time Presets:</label>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="setTimes('07:00', '15:00', '11:30', '12:00')">Morning (07:00 - 15:00)</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="setTimes('11:00', '19:00', '14:30', '15:00')">Midday (11:00 - 19:00)</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="setTimes('15:00', '23:00', '18:30', '19:00')">Closing (15:00 - 23:00)</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="start_time">Shift Start Time *</label>
+          <input type="time" id="start_time" name="start_time" class="form-control"
+                 value="{{ schedule.start_time.strftime('%H:%M') if schedule else '08:00' }}" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="end_time">Shift End Time *</label>
+          <input type="time" id="end_time" name="end_time" class="form-control"
+                 value="{{ schedule.end_time.strftime('%H:%M') if schedule else '16:00' }}" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="break_start">Planned Break Start (Optional)</label>
+          <input type="time" id="break_start" name="break_start" class="form-control"
+                 value="{{ schedule.break_start.strftime('%H:%M') if schedule and schedule.break_start else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="break_end">Planned Break End (Optional)</label>
+          <input type="time" id="break_end" name="break_end" class="form-control"
+                 value="{{ schedule.break_end.strftime('%H:%M') if schedule and schedule.break_end else '' }}">
+        </div>
+      </div>
+
+      {% if schedule %}
+        <div class="form-group">
+          <label class="form-label" for="status">Shift Status</label>
+          <select id="status" name="status" class="form-control">
+            <option value="SCHEDULED" {% if schedule.status == 'SCHEDULED' %}selected{% endif %}>SCHEDULED</option>
+            <option value="COMPLETED" {% if schedule.status == 'COMPLETED' %}selected{% endif %}>COMPLETED</option>
+            <option value="ABSENT" {% if schedule.status == 'ABSENT' %}selected{% endif %}>ABSENT</option>
+            <option value="CANCELLED" {% if schedule.status == 'CANCELLED' %}selected{% endif %}>CANCELLED</option>
+          </select>
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label" for="notes">Notes / Special Instructions (Optional)</label>
+        <textarea id="notes" name="notes" class="form-control" rows="2" placeholder="e.g. Lead barista on espresso machine, oversee closing stock take...">{{ schedule.notes if schedule and schedule.notes else '' }}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary">
+          {% if schedule %}Save Changes{% else %}Create Shift Schedule{% endif %}
+        </button>
+        <a href="{{ url_for('employees.schedules') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function setTimes(start, end, bStart, bEnd) {
+  document.getElementById('start_time').value = start;
+  document.getElementById('end_time').value = end;
+  document.getElementById('break_start').value = bStart || '';
+  document.getElementById('break_end').value = bEnd || '';
+}
+</script>
+{% endblock %}

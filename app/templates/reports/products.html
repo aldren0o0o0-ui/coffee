@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Product Sales & Margins{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Product Sales & Margin Performance</h1>
+    <p>Menu engineering, item sales velocity, recipe ingredient costs, and gross margins</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    {% if current_user.is_manager_or_above %}
+    <a href="{{ url_for('reports.export_products_csv', period=selected_period, start_date=start_date, end_date=end_date, category_id=selected_category_id) }}" class="btn btn-primary">
+      📥 Export Products CSV
+    </a>
+    <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary">&larr; Executive Overview</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Sub-menu -->
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+  {% if current_user.is_manager_or_above %}
+  <a href="{{ url_for('reports.index', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📊 Executive Overview</a>
+  <a href="{{ url_for('reports.profit_loss', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📑 P&L Statement</a>
+  {% endif %}
+  <a href="{{ url_for('reports.products', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-primary btn-sm">☕ Product Sales & Margins</a>
+  {% if current_user.is_manager_or_above %}
+  <a href="{{ url_for('reports.inventory', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">📦 Inventory & Valuation</a>
+  <a href="{{ url_for('reports.attendance', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">👥 Staff Labor & Hours</a>
+  {% endif %}
+  <a href="{{ url_for('reports.registers', period=selected_period, start_date=start_date, end_date=end_date) }}" class="btn btn-secondary btn-sm">⚡ POS Register Audits</a>
+</div>
+
+<!-- Filters Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('reports.products') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1.2; min-width: 150px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Time Period</label>
+      <select name="period" class="form-control" onchange="handlePeriodChange(this);">
+        <option value="today" {% if selected_period == 'today' %}selected{% endif %}>Today</option>
+        <option value="yesterday" {% if selected_period == 'yesterday' %}selected{% endif %}>Yesterday</option>
+        <option value="this_week" {% if selected_period == 'this_week' %}selected{% endif %}>This Week</option>
+        <option value="last_week" {% if selected_period == 'last_week' %}selected{% endif %}>Last Week</option>
+        <option value="this_month" {% if selected_period == 'this_month' %}selected{% endif %}>This Month</option>
+        <option value="last_month" {% if selected_period == 'last_month' %}selected{% endif %}>Last Month</option>
+        <option value="this_quarter" {% if selected_period == 'this_quarter' %}selected{% endif %}>This Quarter</option>
+        <option value="this_year" {% if selected_period == 'this_year' %}selected{% endif %}>This Year</option>
+        <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Custom Date Range</option>
+      </select>
+    </div>
+
+    <div style="flex: 1.5; min-width: 170px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Category Filter</label>
+      <select name="category_id" class="form-control" onchange="this.form.submit();">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if selected_category_id == cat.id %}selected{% endif %}>
+            {{ cat.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="custom-dates" style="display: {% if selected_period == 'custom' %}flex{% else %}none{% endif %}; gap: 0.75rem; flex-wrap: wrap; flex: 2;">
+      <div style="flex: 1; min-width: 130px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">From</label>
+        <input type="date" name="start_date" class="form-control" value="{{ start_date or prod_data.start_date }}">
+      </div>
+      <div style="flex: 1; min-width: 130px;">
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">To</label>
+        <input type="date" name="end_date" class="form-control" value="{{ end_date or prod_data.end_date }}">
+      </div>
+      <div style="align-self: flex-end;">
+        <button type="submit" class="btn btn-secondary">Apply</button>
+      </div>
+    </div>
+
+    <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-dim); padding-bottom: 0.5rem;">
+      Period: <strong>{{ prod_data.period_label }}</strong>
+    </div>
+  </form>
+</div>
+
+<!-- Product Sales Summary Cards -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div class="card stat-card" style="border-left: 4px solid var(--accent);">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Total Items Sold</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #fff; margin-top: 0.25rem;">
+      {{ prod_data.total_products_sold }} units
+    </div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid #10b981;">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Total Product Revenue</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #10b981; margin-top: 0.25rem;">
+      {{ format_currency(prod_data.total_revenue) }}
+    </div>
+  </div>
+</div>
+
+<!-- Product Sales Table -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <h3>Menu Items Sales & Margins ({{ prod_data.products|length }})</h3>
+  </div>
+
+  {% if prod_data.products %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th>Units Sold</th>
+            <th>Gross Revenue</th>
+            <th>Recipe COGS</th>
+            <th>Gross Margin</th>
+            <th>Margin %</th>
+            <th>Revenue Share</th>
+            <th>Avg Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in prod_data.products %}
+            <tr>
+              <td>
+                <strong style="color: #fff;">{{ it.name }}</strong>
+                {% if it.sku %}
+                  <div style="font-size: 0.75rem; color: var(--text-dim); font-family: monospace;">{{ it.sku }}</div>
+                {% endif %}
+              </td>
+              <td><span class="badge badge-primary">{{ it.category_name }}</span></td>
+              <td><strong>{{ it.units_sold }}</strong></td>
+              <td style="font-weight: 700; color: #fff;">{{ format_currency(it.revenue) }}</td>
+              <td style="color: #f87171;">{{ format_currency(it.cogs) }}</td>
+              <td style="font-weight: 700; color: #3b82f6;">{{ format_currency(it.gross_margin) }}</td>
+              <td>
+                <span class="badge {% if it.margin_pct >= 70 %}badge-success{% elif it.margin_pct >= 50 %}badge-primary{% else %}badge-warning{% endif %}">
+                  {{ it.margin_pct }}%
+                </span>
+              </td>
+              <td>
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                  <div style="flex: 1; height: 6px; background: var(--bg-subtle); border-radius: 3px; overflow: hidden; min-width: 40px;">
+                    <div style="width: {{ it.revenue_share }}%; height: 100%; background: var(--accent);"></div>
+                  </div>
+                  <span style="font-size: 0.75rem;">{{ it.revenue_share }}%</span>
+                </div>
+              </td>
+              <td style="font-size: 0.85rem; color: var(--text-muted);">{{ format_currency(it.avg_price) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-dim);">
+      <p style="margin: 0;">No product sales recorded in this period.</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function handlePeriodChange(selectEl) {
+  const customDiv = document.getElementById('custom-dates');
+  if (selectEl.value === 'custom') {
+    if (customDiv) customDiv.style.display = 'flex';
+    const startInput = document.querySelector('input[name="start_date"]');
+    if (startInput && !startInput.value) {
+      const today = new Date().toISOString().split('T')[0];
+      startInput.value = today;
+      const endInput = document.querySelector('input[name="end_date"]');
+      if (endInput && !endInput.value) endInput.value = today;
+    }
+    if (startInput) startInput.focus();
+  } else {
+    if (customDiv) customDiv.style.display = 'none';
+    selectEl.form.submit();
+  }
+}
+function toggleCustomDates(val) {
+  const customDiv = document.getElementById('custom-dates');
+  if (customDiv) customDiv.style.display = (val === 'custom') ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

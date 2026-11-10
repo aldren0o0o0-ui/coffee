@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Timesheets{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Staff Shift Timesheets & Attendance</h1>
+    <p>Monitor clocked hours, late arrivals, break compliance, and labor expenses</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <a href="{{ url_for('employees.export_attendance_csv', start_date=start_date, end_date=end_date, employee_id=selected_emp_id) }}" class="btn btn-secondary">
+      📥 Export CSV
+    </a>
+    <a href="{{ url_for('employees.schedules') }}" class="btn btn-secondary">📅 Schedules</a>
+    <a href="{{ url_for('employees.index') }}" class="btn btn-secondary">👥 Staff Directory</a>
+  </div>
+</div>
+
+<!-- KPI Summary Cards -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div class="card stat-card" style="border-left: 4px solid var(--primary);">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Total Shifts Logged</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #fff; margin-top: 0.25rem;">{{ summary.total_shifts }}</div>
+    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Shifts in selected period</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid var(--accent);">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Total Labor Hours</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent); margin-top: 0.25rem;">{{ summary.total_hours }} hrs</div>
+    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Net worked duration</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid #10b981;">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">On-Time Arrival Rate</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #10b981; margin-top: 0.25rem;">{{ summary.on_time_percentage }}%</div>
+    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Punctuality performance</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid #ef4444;">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Late / Absent Incidents</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #ef4444; margin-top: 0.25rem;">
+      {{ summary.late_count }} / {{ summary.absent_count }}
+    </div>
+    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Late arrivals / absences</div>
+  </div>
+
+  <div class="card stat-card" style="border-left: 4px solid #3b82f6;">
+    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Estimated Labor Cost</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #3b82f6; margin-top: 0.25rem;">{{ format_currency(summary.total_labor_cost) }}</div>
+    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">Based on wage rates</div>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('employees.attendance') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1; min-width: 140px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">From Date</label>
+      <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">To Date</label>
+      <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+    </div>
+
+    <div style="flex: 1.5; min-width: 180px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Staff Member</label>
+      <select name="employee_id" class="form-control">
+        <option value="">All Staff</option>
+        {% for p in profiles %}
+          <option value="{{ p.id }}" {% if selected_emp_id == p.id %}selected{% endif %}>
+            {{ p.full_name }} ({{ p.employee_code }})
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 140px;">
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Attendance Status</label>
+      <select name="status" class="form-control">
+        <option value="">All Statuses</option>
+        {% for st in attendance_statuses %}
+          <option value="{{ st }}" {% if selected_status == st %}selected{% endif %}>{{ st }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-secondary">Filter</button>
+      <a href="{{ url_for('employees.attendance') }}" class="btn btn-outline" style="border: 1px solid var(--border-color); color: var(--text-dim);">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Attendance Timesheets Table -->
+<div class="card">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <h3>Shift Attendance Log ({{ pagination.total }})</h3>
+  </div>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Staff Member</th>
+            <th>Scheduled</th>
+            <th>Clock In</th>
+            <th>Clock Out</th>
+            <th>Worked Time</th>
+            <th>Status</th>
+            <th>Notes / Audit</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in pagination.items %}
+            <tr>
+              <td>
+                <strong>{{ a.attendance_date.strftime('%b %d, %Y') if a.attendance_date else a.clock_in.strftime('%b %d, %Y') }}</strong>
+              </td>
+              <td>
+                <div style="font-weight: 600; color: #fff;">{{ a.employee_name }}</div>
+                <div style="font-size: 0.78rem; color: var(--text-dim);">
+                  {{ a.employee_code }} &bull; {{ format_currency(a.employee_profile.hourly_rate if a.employee_profile else 15.0) }}/hr
+                </div>
+              </td>
+              <td style="font-size: 0.85rem; color: var(--text-muted);">
+                {% if a.scheduled_start and a.scheduled_end %}
+                  {{ a.scheduled_start.strftime('%I:%M %p') }} - {{ a.scheduled_end.strftime('%I:%M %p') }}
+                {% else %}
+                  <span style="color: var(--text-dim);">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ format_datetime(a.clock_in, '%I:%M %p') }}</div>
+                {% if a.late_minutes > 0 %}
+                  <span class="badge badge-warning" style="font-size: 0.68rem;">+{{ a.late_minutes }}m Late</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if a.clock_out %}
+                  <div style="font-weight: 600;">{{ format_datetime(a.clock_out, '%I:%M %p') }}</div>
+                  {% if a.undertime_minutes > 0 %}
+                    <span class="badge badge-danger" style="font-size: 0.68rem;">-{{ a.undertime_minutes }}m Early</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge badge-success">🟢 Active Now</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="font-weight: 700; color: var(--accent);">{{ a.total_hours }} hrs</div>
+                <div style="font-size: 0.75rem; color: var(--text-dim);">{{ a.worked_minutes }} mins</div>
+              </td>
+              <td>
+                {% if a.status == 'PRESENT' %}
+                  <span class="badge badge-success">Present</span>
+                {% elif a.status == 'LATE' %}
+                  <span class="badge badge-warning">Late</span>
+                {% elif a.status == 'EARLY_DEPARTURE' %}
+                  <span class="badge badge-warning">Early Departure</span>
+                {% elif a.status == 'LATE_AND_EARLY_DEPARTURE' %}
+                  <span class="badge badge-danger">Late & Early Out</span>
+                {% elif a.status == 'CORRECTED' %}
+                  <span class="badge badge-primary">Corrected</span>
+                {% elif a.status == 'ABSENT' %}
+                  <span class="badge badge-danger">Absent</span>
+                {% else %}
+                  <span class="badge badge-secondary">{{ a.status }}</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 0.82rem; max-width: 220px;">
+                {% if a.correction_reason %}
+                  <div style="color: #60a5fa; font-weight: 500;">
+                    Corrected: {{ a.correction_reason }}
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-dim);">By: {{ a.corrected_by.full_name if a.corrected_by else 'Manager' }}</div>
+                {% elif a.notes %}
+                  <span style="color: var(--text-dim);">{{ a.notes }}</span>
+                {% else %}
+                  <span style="color: var(--text-dim);">-</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <button type="button" class="btn btn-secondary btn-sm"
+                        onclick="openCorrectionModal('{{ a.id }}', '{{ a.employee_name|escape }}', '{{ a.clock_in.strftime('%Y-%m-%d %H:%M') if a.clock_in else '' }}', '{{ a.clock_out.strftime('%Y-%m-%d %H:%M') if a.clock_out else '' }}', '{{ a.status }}', '{{ a.correction_reason|default('', true)|escape }}')">
+                  ✏️ Correct
+                </button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "components/pagination.html" %}
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem;">
+      <div style="font-size: 2.5rem; margin-bottom: 0.5rem; opacity: 0.6;">📋</div>
+      <h3 style="margin-bottom: 0.5rem;">No Attendance Records Found</h3>
+      <p style="color: var(--text-dim); max-width: 400px; margin: 0 auto 1.5rem;">
+        No timesheet entries were found matching your filter dates.
+      </p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Manager Correction Modal -->
+<div id="correctionModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000;">
+  <div class="card" style="width: 100%; max-width: 520px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid var(--primary-border);">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 id="modalTitle">Correct Shift Attendance</h3>
+      <button type="button" class="btn btn-sm btn-outline" onclick="closeCorrectionModal()" style="border: none; font-size: 1.25rem;">&times;</button>
+    </div>
+
+    <form id="correctionForm" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+        <div>
+          <label class="form-label">Employee</label>
+          <input type="text" id="modalEmployeeName" class="form-control" disabled>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label" for="modalClockIn">Clock In (YYYY-MM-DD HH:MM) *</label>
+            <input type="text" id="modalClockIn" name="clock_in" class="form-control" placeholder="2026-09-18 08:00" required>
+          </div>
+
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label" for="modalClockOut">Clock Out (YYYY-MM-DD HH:MM)</label>
+            <input type="text" id="modalClockOut" name="clock_out" class="form-control" placeholder="2026-09-18 16:00">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="modalReason">Mandatory Reason / Justification *</label>
+          <textarea id="modalReason" name="reason" class="form-control" rows="3" placeholder="e.g. Employee forgot to clock in at opening; verified on duty at 08:00 by shift lead." required></textarea>
+          <small class="form-text" style="color: var(--text-dim);">This reason will be preserved permanently in the manager audit trail.</small>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeCorrectionModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Correction & Audit</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openCorrectionModal(id, empName, clockIn, clockOut, status, reason) {
+  const modal = document.getElementById('correctionModal');
+  const form = document.getElementById('correctionForm');
+  form.action = `/staff/attendance/${id}/correct`;
+  document.getElementById('modalEmployeeName').value = empName;
+  document.getElementById('modalClockIn').value = clockIn;
+  document.getElementById('modalClockOut').value = clockOut;
+  document.getElementById('modalReason').value = reason || '';
+  modal.style.display = 'flex';
+}
+
+function closeCorrectionModal() {
+  document.getElementById('correctionModal').style.display = 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Menu Catalog & Products — Coffee Shop SME{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Products & Menu</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">Drink and food catalog, pricing, and variants</div>
+  </div>
+  <div style="display: flex; gap: 0.75rem; align-items: center;">
+    {% if current_user.has_permission('catalog.manage') %}
+      <a href="{{ url_for('catalog.categories') }}" class="btn btn-secondary">
+        Categories
+      </a>
+    {% endif %}
+    {% if current_user.has_permission('catalog.create') %}
+      <a href="{{ url_for('catalog.create_product') }}" class="btn btn-primary">
+        + Add Product
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 4 KPI Stat Cards (Section 13) -->
+<div class="stat-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div class="card" style="padding: 1.2rem;">
+    <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 0.35rem;">Total Products</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--text);">{{ stats.total_products }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Active in system</div>
+  </div>
+  <div class="card" style="padding: 1.2rem;">
+    <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 0.35rem;">Available to Sell</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: #10b981;">{{ stats.available_products }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Ready on menu</div>
+  </div>
+  <div class="card" style="padding: 1.2rem;">
+    <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 0.35rem;">Categories</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">{{ stats.total_categories }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Active categories</div>
+  </div>
+  <div class="card" style="padding: 1.2rem;">
+    <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 0.35rem;">Unavailable Products</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: {% if stats.unavailable_products > 0 %}#f59e0b{% else %}var(--text-dim){% endif %};">{{ stats.unavailable_products }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Temporarily 86'd / sold out</div>
+  </div>
+</div>
+
+<!-- Search & Filtering Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('catalog.index') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+    <div style="flex: 2; min-width: 220px;">
+      <input type="text" name="q" class="form-control" placeholder="Search by drink name or SKU..." value="{{ search }}">
+    </div>
+    <div style="flex: 1; min-width: 160px;">
+      <select name="category_id" class="form-control form-select" onchange="this.form.submit()">
+        <option value="">All Categories</option>
+        {% for c in categories %}
+          <option value="{{ c.id }}" {% if selected_category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 140px;">
+      <select name="available" class="form-control form-select" onchange="this.form.submit()">
+        <option value="">All Availability</option>
+        <option value="1" {% if availability == '1' %}selected{% endif %}>Available Only</option>
+        <option value="0" {% if availability == '0' %}selected{% endif %}>Unavailable Only</option>
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 140px;">
+      <select name="active" class="form-control form-select" onchange="this.form.submit()">
+        <option value="1" {% if active_state == '1' %}selected{% endif %}>Active Catalog</option>
+        <option value="0" {% if active_state == '0' %}selected{% endif %}>Archived / Inactive</option>
+      </select>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-secondary">Filter</button>
+      {% if search or selected_category_id or availability or active_state != '1' %}
+        <a href="{{ url_for('catalog.index') }}" class="btn btn-secondary">Reset</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Product Table -->
+{% if pagination.items %}
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+      <table class="table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th>Item & Details</th>
+            <th>SKU</th>
+            <th>Category</th>
+            <th>Base Price</th>
+            <th>Cost Price</th>
+            <th>Variants</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pagination.items %}
+            <tr>
+              <td>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <div style="width: 36px; height: 36px; border-radius: 6px; background: rgba(212, 151, 85, 0.12); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem;">
+                    ☕
+                  </div>
+                  <div>
+                    <div style="font-weight: 600; color: var(--text);">{{ p.name }}</div>
+                    {% if p.description %}
+                      <div style="font-size: 0.75rem; color: var(--text-dim); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        {{ p.description }}
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td><code>{{ p.sku }}</code></td>
+              <td>
+                <span class="badge badge-secondary">{{ p.category.name if p.category else 'Unassigned' }}</span>
+              </td>
+              <td style="font-weight: 600; color: var(--text);">
+                ₱{{ "%.2f"|format(p.base_price) }}
+              </td>
+              <td style="color: var(--text-dim); font-size: 0.85rem;">
+                ₱{{ "%.2f"|format(p.cost_price) }}
+              </td>
+              <td>
+                {% if p.has_variants %}
+                  <span class="badge badge-info" title="{{ p.variants.filter_by(is_active=True).count() }} variants configured">
+                    {{ p.variants.filter_by(is_active=True).count() }} Variants
+                  </span>
+                {% else %}
+                  <span style="color: var(--text-dim); font-size: 0.75rem;">Standard</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                  {% if p.is_available %}
+                    <span class="badge badge-success" style="width: fit-content;">Available</span>
+                  {% else %}
+                    <span class="badge badge-danger" style="width: fit-content;">Unavailable</span>
+                  {% endif %}
+                  {% if not p.is_active %}
+                    <span class="badge badge-secondary" style="width: fit-content; font-size: 0.65rem;">Archived</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td style="text-align: right;">
+                <div class="table-actions" style="justify-content: flex-end; display: inline-flex; gap: 0.35rem;">
+                  {% if current_user.has_permission('catalog.update') %}
+                    <a href="{{ url_for('catalog.edit_product', product_id=p.id) }}" class="btn btn-secondary btn-sm" title="Edit product and manage variants">
+                      Edit
+                    </a>
+                    <form method="POST" action="{{ url_for('catalog.toggle_product', product_id=p.id) }}" style="display: inline;">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn btn-secondary btn-sm" title="Toggle sales availability">
+                        {{ '86 / Sold Out' if p.is_available else 'Set Available' }}
+                      </button>
+                    </form>
+                  {% endif %}
+                  {% if current_user.has_permission('catalog.deactivate') %}
+                    <form method="POST" action="{{ url_for('catalog.toggle_active_product', product_id=p.id) }}" style="display: inline;" onsubmit="return confirm('Change active status for this item?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn btn-secondary btn-sm" title="Archive or restore item" style="color: {% if p.is_active %}#ef4444{% else %}#10b981{% endif %};">
+                        {{ 'Archive' if p.is_active else 'Restore' }}
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding: 1rem;">
+      {% include "components/pagination.html" %}
+    </div>
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+    <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🏷️</div>
+    <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">No Products Found</h3>
+    <p style="color: var(--text-dim); max-width: 400px; margin: 0 auto 1.5rem auto; font-size: 0.88rem;">
+      No menu catalog products matched your search or filters. Try adjusting your query or create a new product.
+    </p>
+    {% if current_user.has_permission('catalog.create') %}
+      <a href="{{ url_for('catalog.create_product') }}" class="btn btn-primary">+ Create First Product</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

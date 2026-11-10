@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}System Audit Logs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom: 0.25rem;">Audit Logs</h1>
+    <div style="font-size: 0.88rem; color: var(--text-muted);">System events, staff actions, and security history</div>
+  </div>
+</div>
+
+{% if pagination.items %}
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Entity</th>
+          <th>ID</th>
+          <th>Details</th>
+          <th>IP Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in pagination.items %}
+          <tr>
+            <td style="font-size: 0.85rem; color: var(--text-dim);">{{ format_datetime(log.timestamp) }}</td>
+            <td><strong style="color: #fff;">{{ log.user.username if log.user else 'System' }}</strong></td>
+            <td><span class="badge badge-primary">{{ log.action }}</span></td>
+            <td>{{ log.entity_type }}</td>
+            <td><code>{{ log.entity_id or '-' }}</code></td>
+            <td style="font-size: 0.85rem; color: var(--text-muted);">{{ log.details or '-' }}</td>
+            <td style="font-size: 0.8rem; color: var(--text-dim);">{{ log.ip_address or '-' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "components/pagination.html" %}
+{% else %}
+  {% include "components/empty_state.html" %}
+{% endif %}
+{% endblock %}
